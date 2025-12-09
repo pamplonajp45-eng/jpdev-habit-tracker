@@ -3,5 +3,5 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/jpdev-habit-tracker/' // <- your repo name
+  base: '/jpdev-habit-tracker/' 
 })
