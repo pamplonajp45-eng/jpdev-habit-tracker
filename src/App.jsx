@@ -1,31 +1,56 @@
 import { useState, useEffect } from "react";
 import HabitInput from "./components/HabitInput";
 import HabitList from "./components/HabitList";
-import "./index.css"
+import "./index.css";
+import WeeklyStats from "./components/WeeklyStats";
 
 export default function App() {
   const [habits, setHabits] = useState([]);
+  const today = new Date().toDateString();
+  const [history, setHistory] = useState([{ date: today, completed: 0, total: 0 }]);
 
-  // Load habits from localStorage on mount
-  useEffect(() => {
+
+useEffect(() => {
     const saved = localStorage.getItem("habits");
     if (saved) {
-      const parsedHabits = JSON.parse(saved);
-      const today = new Date().toDateString();
-      const updatedHabits = parsedHabits.map((h) => {
-        if (h.lastCompleted !== today) {
-          return { ...h, completed: false };
-        }
-        return h;
+    const parsedHabits = JSON.parse(saved);
+    const updatedHabits = parsedHabits.map((h) => {
+    if (h.lastCompleted !== today) {
+    return { ...h, completed: false };
+    }
+    return h;
       });
       setHabits(updatedHabits);
     }
   }, []);
 
-  // Save habits to localStorage whenever they change
-  useEffect(() => {
+ 
+useEffect(() => {
     if (habits.length > 0) {
       localStorage.setItem("habits", JSON.stringify(habits));
+    }
+  }, [habits]);
+
+  const completedCount = habits.filter((h) => h.completed).length;
+  const totalHabits = habits.length;
+  const progress = totalHabits > 0 ? Math.round((completedCount / totalHabits) * 100) : 0;
+
+useEffect(() => {
+    if (!history.some((record) => record.date === today)) {
+      const newRecord = {
+        date: today,
+        completed: completedCount,
+        total: totalHabits,
+      };
+      setHistory((prev) => [...prev, newRecord]);
+    } else {
+      setHistory((prev) =>
+      prev.map((record) =>
+      record.date === today
+      ? { ...record, completed: completedCount, total: totalHabits }
+      : record
+      )
+      );
     }
   }, [habits]);
 
@@ -40,63 +65,80 @@ export default function App() {
     setHabits([...habits, newHabit]);
   }
 
-  function toggleHabit(id) {
-    const today = new Date().toDateString();
+  function editHabit(id, newName) {
     setHabits(
-      habits.map((habit) => {
+      habits.map((habit) =>
+        habit.id === id ? { ...habit, name: newName } : habit
+      )
+    );
+  }
+
+function toggleHabit(id) {
+  const today = new Date().toDateString();
+  setHabits(
+  habits.map((habit) => {
         if (habit.id === id) {
           let newStreak = habit.streak || 0;
           let newCompleted = !habit.completed;
 
-         
           if (newCompleted && habit.lastCompleted !== today) {
             newStreak += 1;
-          }
-          
-          else if (!newCompleted && habit.lastCompleted === today) {
+          } else if (!newCompleted && habit.lastCompleted === today) {
             newStreak = Math.max(0, newStreak - 1);
           }
 
-          return {
-            ...habit,
-            completed: newCompleted,
-            streak: newStreak,
-            lastCompleted: newCompleted ? today : habit.lastCompleted,
-          };
-        }
-        return habit;
-      })
-    );
+return {
+     ...habit,
+      completed: newCompleted,
+      streak: newStreak,
+      lastCompleted: newCompleted ? today : habit.lastCompleted,
+      };
+      }
+  return habit;
+  })
+  );
   }
 
   function deleteHabit(id) {
-    setHabits(habits.filter((h) => h.id !== id));
+  setHabits(habits.filter((h) => h.id !== id));
   }
 
-  return (
-    <div className = "container">
-    <div className = "card">
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-4xl font-bold text-center mb-8 text-gray-800">
-          🎯 HABIT TRACKER
-        </h1>
-        <div className="bg-gray-50 p-6 rounded-xl shadow-lg">
-          <HabitInput onAdd={addHabit} />
-          <HabitList
-            habits={habits}
-            onToggle={toggleHabit}
-            onDelete={deleteHabit}
-          />
-          {habits.length === 0 && (
-            <p className="text-center text-gray-500 mt-4">
-              No habits yet. Add one to get started!
-            </p>
-          )}
+return (
+ <div className="container">
+  <div className="card">
+    <div className="app-container">
+      <div className="inner-container">
+        <h1 className="app-title">HABIT TRACKER</h1>
+
+         <p style={{ fontWeight: "bold", color: "white" }}>
+         Progress Today: {progress}% ({completedCount} / {totalHabits})
+         </p>
+
+         {progress === 100 && (
+         <div className="celebration">
+         🎉 Abaaaa nice !, You completed all your habits today! 🎉
         </div>
+      )}
+
+  <HabitInput onAdd={addHabit} />
+  <WeeklyStats history={history} />
+
+    <div className="habit-list-wrapper">
+      <HabitList
+       habits={habits}
+        onToggle={toggleHabit}
+         onDelete={deleteHabit}
+          onEdit={editHabit}
+        />
+   {habits.length === 0 && (
+     <p className="text-center text-gray-500 mt-4">
+      No habits yet. Add one to get started!
+      </p>
+              )}
       </div>
-    </div>
-    </div>
+      </div>
+      </div>
+      </div>
     </div>
   );
 }
