@@ -93,7 +93,7 @@ function EditableHabitName({ habit, onEdit }) {
   ) : (
     <span
       style={{ marginLeft: "8px", cursor: "pointer",  textDecoration: habit.completed ? "line-through" : "none",
-    color: habit.completed ? "gray" : "black",}}
+    color: habit.completed ? "gray" : "white",}}
       onClick={() => setIsEditing(true)}
     >
       {habit.name}
