@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/jpdev-habit-tracker/sw.js', { scope: '/jpdev-habit-tracker/' })})}
