@@ -1,31 +1,34 @@
 import { useState, useEffect, useRef } from "react";
 import HabitInput from "./components/HabitInput";
 import HabitList from "./components/HabitList";
-import WeeklyStats from "./components/WeeklyStats";
+import ContributionCalendar from "./components/ContributionCalendar";
 import "./index.css";
 
 export default function App() {
   const [habits, setHabits] = useState([]);
   const today = new Date().toDateString();
-  const [history, setHistory] = useState([{ date: today, completed: 0, total: 0 }]);
-  
+  const [history, setHistory] = useState(() => {
+    const saved = localStorage.getItem("habit_history");
+    return saved ? JSON.parse(saved) : [{ date: today, completed: 0, total: 0 }];
+  });
+
   const playSound = (type) => {
     let src = '';
-    switch(type) {
+    switch (type) {
       case 'add': src = 'add.mp3'; break;
       case 'delete': src = 'delete.mp3'; break;
       case 'toggle': src = 'toggle.mp3'; break;
       case 'celebrate': src = 'celebration.mp3'; break;
-      default: src = ''; 
+      default: src = '';
     }
     try {
       const audio = new Audio(src);
       audio.volume = 1;
-      audio.play().catch(() => {});
-    } catch(e) {}
+      audio.play().catch(() => { });
+    } catch (e) { }
   };
 
-  // === Load habits from localStorage ===
+
   useEffect(() => {
     const saved = localStorage.getItem("habits");
     if (saved) {
@@ -37,17 +40,19 @@ export default function App() {
     }
   }, []);
 
-  // === Save habits to localStorage ===
+
   useEffect(() => {
     localStorage.setItem("habits", JSON.stringify(habits));
   }, [habits]);
 
-  // === Calculate progress ===
+  useEffect(() => {
+    localStorage.setItem("habit_history", JSON.stringify(history));
+  }, [history]);
+
   const completedCount = habits.filter((h) => h.completed).length;
   const totalHabits = habits.length;
   const progress = totalHabits > 0 ? Math.round((completedCount / totalHabits) * 100) : 0;
 
-  // === Update daily history ===
   useEffect(() => {
     if (!history.some((record) => record.date === today)) {
       setHistory((prev) => [...prev, { date: today, completed: completedCount, total: totalHabits }]);
@@ -62,7 +67,7 @@ export default function App() {
     }
   }, [habits]);
 
-  // === Celebration sound when 100% ===
+
   useEffect(() => {
     if (progress === 100 && habits.length > 0) {
       setTimeout(() => {
@@ -71,7 +76,7 @@ export default function App() {
     }
   }, [progress]);
 
-  // === Habit actions ===
+
   function addHabit(name) {
     const newHabit = {
       id: Date.now(),
@@ -120,14 +125,14 @@ export default function App() {
     playSound('delete');
   }
 
-  // === Render ===
   return (
     <div className="container">
       <div className="card">
         <div className="app-container">
           <div className="inner-container">
-            <h1 className="app-title">HABIT TRACKER</h1>
-            <p style={{ fontWeight: "bold", color: "white" }}>
+            <h1 className="app-title">Ha<strong>BITAW</strong> </h1>
+            <p className="app-subtitle">Bitaw Gusto, Disiplina Ayaw?</p>
+            <p style={{ textAlign: "center", margin: "1rem 10px", fontWeight: "bold", color: "white" }}>
               Progress Today: {progress}% ({completedCount} / {totalHabits})
             </p>
 
@@ -138,7 +143,7 @@ export default function App() {
             )}
 
             <HabitInput onAdd={addHabit} />
-            <WeeklyStats history={history} />
+            <ContributionCalendar history={history} />
 
             <div className="habit-list-wrapper">
               <HabitList
