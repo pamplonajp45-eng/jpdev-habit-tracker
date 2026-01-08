@@ -50,10 +50,17 @@ body {
 }
 
 .inner-container {
-  max-width: 600px;
+  max-width: 800px;
   margin: 0 auto;
   width: 100%;
   flex: 1;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
 }
 
 /* Header */
@@ -479,9 +486,37 @@ body {
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--text-secondary);
-  margin-bottom: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.year-dropdown {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.year-dropdown:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.year-dropdown option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .calendar-scroll {

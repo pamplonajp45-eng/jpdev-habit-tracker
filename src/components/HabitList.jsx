@@ -1,4 +1,4 @@
-import{useState} from "react"
+import { useState } from "react"
 import fire2 from "../assets/fire/fire2.png";
 import fire3 from "../assets/fire/fire3.png";
 import fire4 from "../assets/fire/fire4.png";
@@ -9,44 +9,44 @@ export default function HabitList({ habits, onToggle, onDelete, onEdit }) {
   return (
     <ul className="habit-list">
       {habits.map((habit) => (
-        <li key={habit.id}>
+        <li key={habit._id}>
           <div className="fire-streak">
-  {getFireImages(habit.streak).map((img, i) => (
-    <img
-      key={i}
-      src={img}
-      alt="fire"
-      className="fire-icon"
-    />
-  ))}
-</div>
+            {getFireImages(habit.streak).map((img, i) => (
+              <img
+                key={i}
+                src={img}
+                alt="fire"
+                className="fire-icon"
+              />
+            ))}
+          </div>
 
-<div className="habit-item-container">
-  <input
-    type="checkbox"
-    checked={habit.completed}
-    onChange={() => onToggle(habit.id)}
-    className="habit-checkbox"
-    />
-            
-<div className="habit-text">
-    <EditableHabitName habit={habit} onEdit={onEdit} />
-    
-      <p className="streak">
-      Streak: {habit.streak }{habit.streak === 1 ? " Day " : " Days "}
-      </p>
-    </div>
-    </div>  
+          <div className="habit-item-container">
+            <input
+              type="checkbox"
+              checked={habit.completedToday}
+              onChange={() => onToggle(habit._id)}
+              className="habit-checkbox"
+            />
 
- <button
-   onClick={() => onDelete(habit.id)}
-   className="deleteHabit"
-    >
-  ✕
-  </button>
-  </li>
-  ))}
-  </ul>
+            <div className="habit-text">
+              <EditableHabitName habit={habit} onEdit={onEdit} />
+
+              <p className="streak">
+                Streak: {habit.streak}{habit.streak === 1 ? " Day " : " Days "}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => onDelete(habit._id)}
+            className="deleteHabit"
+          >
+            ✕
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 function getFireImages(streak) {
@@ -68,7 +68,7 @@ function EditableHabitName({ habit, onEdit }) {
   const [name, setName] = useState(habit.name);
 
   const handleBlur = () => {
-    onEdit(habit.id, name); // send new name to App
+    onEdit(habit._id, name); // send new name to App
     setIsEditing(false);
   };
 
@@ -92,8 +92,10 @@ function EditableHabitName({ habit, onEdit }) {
     />
   ) : (
     <span
-      style={{ marginLeft: "8px", cursor: "pointer",  textDecoration: habit.completed ? "line-through" : "none",
-    color: habit.completed ? "gray" : "white",}}
+      style={{
+        marginLeft: "8px", cursor: "pointer", textDecoration: habit.completed ? "line-through" : "none",
+        color: habit.completed ? "gray" : "white",
+      }}
       onClick={() => setIsEditing(true)}
     >
       {habit.name}

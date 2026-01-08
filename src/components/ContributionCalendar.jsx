@@ -7,13 +7,26 @@ import React, { useMemo } from "react";
  */
 export default function ContributionCalendar({ history }) {
     const today = new Date();
+    const [selectedYear, setSelectedYear] = React.useState(today.getFullYear());
 
-    // Generate current calendar year (Jan 1 to Dec 31) plus padding for Sunday-Saturday alignment
+    // Extract available years from history
+    const availableYears = useMemo(() => {
+        const years = new Set();
+        years.add(today.getFullYear());
+        if (history) {
+            history.forEach(record => {
+                const year = new Date(record.date).getFullYear();
+                if (!isNaN(year)) years.add(year);
+            });
+        }
+        return Array.from(years).sort((a, b) => b - a);
+    }, [history]);
+
+    // Generate calendar year (Jan 1 to Dec 31) plus padding for Sunday-Saturday alignment
     const calendarData = useMemo(() => {
         const data = [];
-        const currentYear = today.getFullYear();
-        const startOfYear = new Date(currentYear, 0, 1);
-        const endOfYear = new Date(currentYear, 11, 31);
+        const startOfYear = new Date(selectedYear, 0, 1);
+        const endOfYear = new Date(selectedYear, 11, 31);
 
         // Start from startOfYear, aligned to the previous Sunday
         const startDate = new Date(startOfYear);
@@ -26,7 +39,11 @@ export default function ContributionCalendar({ history }) {
         for (let i = 0; i < totalDays; i++) {
             const d = new Date(startDate);
             d.setDate(startDate.getDate() + i);
-            const dateString = d.toDateString();
+
+            // Format d to YYYY-MM-DD using local time
+            const offset = d.getTimezoneOffset();
+            const localDate = new Date(d.getTime() - (offset * 60 * 1000));
+            const dateString = localDate.toISOString().split('T')[0];
 
             const record = history.find(r => r.date === dateString);
             const percentage = record && record.total > 0
@@ -46,11 +63,12 @@ export default function ContributionCalendar({ history }) {
                 level,
                 fullDate: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
                 month: d.getMonth(),
-                dayOfWeek: d.getDay()
+                dayOfWeek: d.getDay(),
+                year: d.getFullYear()
             });
         }
         return data;
-    }, [history]);
+    }, [history, selectedYear]);
 
     // Group by week for vertical columns (or just render squares)
     // GitHub renders columns as weeks.
@@ -62,7 +80,6 @@ export default function ContributionCalendar({ history }) {
     const monthLabels = useMemo(() => {
         const labels = [];
         let lastMonth = -1;
-        const currentYear = today.getFullYear();
 
         // Since it's a grid of 7 rows, each column starts at index i where i % 7 == 0
         for (let i = 0; i < calendarData.length; i += 7) {
@@ -70,18 +87,29 @@ export default function ContributionCalendar({ history }) {
             const m = d.getMonth();
             const y = d.getFullYear();
 
-            // Only add label if it's a new month AND it belongs to the current year
-            if (m !== lastMonth && y === currentYear) {
+            // Only add label if it's a new month AND it belongs to the selected year
+            if (m !== lastMonth && y === selectedYear) {
                 labels.push({ name: monthNames[m], colIndex: i / 7, monthIndex: m });
                 lastMonth = m;
             }
         }
         return labels;
-    }, [calendarData]);
+    }, [calendarData, selectedYear]);
 
     return (
         <div className="contribution-container">
-            <h3 className="stats-title">Habit Consistency</h3>
+            <div className="calendar-header">
+                <h3 className="stats-title">Habit Consistency</h3>
+                <select
+                    className="year-dropdown"
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                >
+                    {availableYears.map(year => (
+                        <option key={year} value={year}>{year}</option>
+                    ))}
+                </select>
+            </div>
 
             <div className="calendar-layout-wrapper">
                 {/* Day labels on the left */}

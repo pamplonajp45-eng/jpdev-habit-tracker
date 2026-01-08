@@ -1,16 +1,61 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import HabitInput from "./components/HabitInput";
 import HabitList from "./components/HabitList";
 import ContributionCalendar from "./components/ContributionCalendar";
+import Login from "./components/Auth/Login";
+import Register from "./components/Auth/Register";
+import VerifyEmail from "./components/Auth/VerifyEmail";
+import GoalList from "./components/GoalList";
+import Leaderboard from "./components/Leaderboard";
+import api from "./utils/api";
 import "./index.css";
 
 export default function App() {
+  const [user, setUser] = useState(null);
+  const [authStep, setAuthStep] = useState('login'); // login, register, verify
+  const [tempAuthData, setTempAuthData] = useState(null); // { userId, email } for verification
+
   const [habits, setHabits] = useState([]);
-  const today = new Date().toDateString();
-  const [history, setHistory] = useState(() => {
-    const saved = localStorage.getItem("habit_history");
-    return saved ? JSON.parse(saved) : [{ date: today, completed: 0, total: 0 }];
-  });
+  const [history, setHistory] = useState([]);
+  const [progress, setProgress] = useState(0);
+  const [completedCount, setCompletedCount] = useState(0);
+  const [totalHabits, setTotalHabits] = useState(0);
+
+  // Check for existing token
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        // Ideally verify token with an endpoint like /api/auth/me, but simple check for now
+        setUser({ loggedIn: true });
+        fetchData();
+      }
+    };
+    checkAuth();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const [habitsRes, heatmapRes] = await Promise.all([
+        api.get('/habits'),
+        api.get('/heatmap')
+      ]);
+      setHabits(habitsRes.data);
+      setHistory(heatmapRes.data);
+    } catch (error) {
+      console.error("Error fetching data", error);
+    }
+  };
+
+  // Recalculate progress when habits change
+  useEffect(() => {
+    const completed = habits.filter((h) => h.completedToday).length;
+    const total = habits.length;
+    setCompletedCount(completed);
+    setTotalHabits(total);
+    setProgress(total > 0 ? Math.round((completed / total) * 100) : 0);
+  }, [habits]);
+
 
   const playSound = (type) => {
     let src = '';
@@ -28,46 +73,6 @@ export default function App() {
     } catch (e) { }
   };
 
-
-  useEffect(() => {
-    const saved = localStorage.getItem("habits");
-    if (saved) {
-      const parsedHabits = JSON.parse(saved);
-      const updatedHabits = parsedHabits.map((h) =>
-        h.lastCompleted !== today ? { ...h, completed: false } : h
-      );
-      setHabits(updatedHabits);
-    }
-  }, []);
-
-
-  useEffect(() => {
-    localStorage.setItem("habits", JSON.stringify(habits));
-  }, [habits]);
-
-  useEffect(() => {
-    localStorage.setItem("habit_history", JSON.stringify(history));
-  }, [history]);
-
-  const completedCount = habits.filter((h) => h.completed).length;
-  const totalHabits = habits.length;
-  const progress = totalHabits > 0 ? Math.round((completedCount / totalHabits) * 100) : 0;
-
-  useEffect(() => {
-    if (!history.some((record) => record.date === today)) {
-      setHistory((prev) => [...prev, { date: today, completed: completedCount, total: totalHabits }]);
-    } else {
-      setHistory((prev) =>
-        prev.map((record) =>
-          record.date === today
-            ? { ...record, completed: completedCount, total: totalHabits }
-            : record
-        )
-      );
-    }
-  }, [habits]);
-
-
   useEffect(() => {
     if (progress === 100 && habits.length > 0) {
       setTimeout(() => {
@@ -77,52 +82,113 @@ export default function App() {
   }, [progress]);
 
 
-  function addHabit(name) {
-    const newHabit = {
-      id: Date.now(),
-      name,
-      completed: false,
-      streak: 0,
-      lastCompleted: null,
-    };
-    setHabits([...habits, newHabit]);
-    playSound('add');
+  async function addHabit(name) {
+    try {
+      const res = await api.post('/habits', { name });
+      // The backend returns the new habit. We need to respect the frontend structure or adapt.
+      // Backend habit needs 'completedToday' which is false by default.
+      setHabits(prev => [{ ...res.data, completedToday: false }, ...prev]);
+      playSound('add');
+    } catch (err) {
+      console.error("Failed to add habit", err);
+    }
   }
 
-  function editHabit(id, newName) {
-    setHabits(
-      habits.map((habit) => (habit.id === id ? { ...habit, name: newName } : habit))
+  async function editHabit(id, newName) {
+    try {
+      const res = await api.put(`/habits/${id}`, { name: newName });
+      setHabits(habits.map((habit) => (habit._id === id ? { ...habit, name: res.data.name } : habit)));
+    } catch (err) {
+      console.error("Failed to edit habit", err);
+    }
+  }
+
+  async function toggleHabit(id) {
+    try {
+      const res = await api.post(`/habits/${id}/toggle`);
+      const updatedHabit = res.data.habit;
+      // We need to know if it was checked or unchecked.
+      // The backend returns the updated habit structure.
+      // Our frontend 'habits' state uses 'completedToday'.
+
+      const isCompletedNow = res.data.message === 'Habit checked';
+
+      setHabits(habits.map((h) =>
+        h._id === id
+          ? { ...h, completedToday: isCompletedNow, streak: updatedHabit.streak }
+          : h
+      ));
+
+      playSound('toggle');
+
+      // Refresh heatmap
+      const heatmapRes = await api.get('/heatmap');
+      setHistory(heatmapRes.data);
+
+    } catch (err) {
+      console.error("Failed to toggle habit", err);
+    }
+  }
+
+  async function deleteHabit(id) {
+    try {
+      await api.delete(`/habits/${id}`);
+      setHabits(habits.filter((h) => h._id !== id));
+      playSound('delete');
+      // Refresh heatmap
+      const heatmapRes = await api.get('/heatmap');
+      setHistory(heatmapRes.data);
+    } catch (err) {
+      console.error("Failed to delete habit", err);
+    }
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setUser(null);
+    setAuthStep('login');
+    setHabits([]);
+  }
+
+  // Auth Handling
+  if (!user) {
+    return (
+      <div className="container">
+        <div className="card">
+          <div className="app-container">
+            <div className="inner-container">
+              <h1 className="app-title">Ha<strong>BITAW</strong></h1>
+              <p className="app-subtitle">Bitaw Gusto, Disiplina Ayaw?</p>
+
+              {authStep === 'login' && (
+                <Login
+                  onSuccess={(userData) => { setUser(userData); fetchData(); }}
+                  onSwitchToRegister={() => setAuthStep('register')}
+                />
+              )}
+
+              {authStep === 'register' && (
+                <Register
+                  onRegistered={(userId, email) => {
+                    setTempAuthData({ userId, email });
+                    setAuthStep('verify');
+                  }}
+                  onSwitchToLogin={() => setAuthStep('login')}
+                />
+              )}
+
+              {authStep === 'verify' && tempAuthData && (
+                <VerifyEmail
+                  userId={tempAuthData.userId}
+                  email={tempAuthData.email}
+                  onSuccess={(userData) => { setUser(userData); fetchData(); }}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
     );
-  }
-
-  function toggleHabit(id) {
-    setHabits(
-      habits.map((habit) => {
-        if (habit.id === id) {
-          const today = new Date().toDateString();
-          let newCompleted = !habit.completed;
-          let newStreak = habit.streak || 0;
-
-          if (newCompleted && habit.lastCompleted !== today) newStreak += 1;
-          else if (!newCompleted && habit.lastCompleted === today) newStreak = Math.max(0, newStreak - 1);
-
-          playSound('toggle');
-
-          return {
-            ...habit,
-            completed: newCompleted,
-            streak: newStreak,
-            lastCompleted: newCompleted ? today : habit.lastCompleted,
-          };
-        }
-        return habit;
-      })
-    );
-  }
-
-  function deleteHabit(id) {
-    setHabits(habits.filter((h) => h.id !== id));
-    playSound('delete');
   }
 
   return (
@@ -130,7 +196,11 @@ export default function App() {
       <div className="card">
         <div className="app-container">
           <div className="inner-container">
-            <h1 className="app-title">Ha<strong>BITAW</strong> </h1>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h1 className="app-title" style={{ margin: 0 }}>Ha<strong>BITAW</strong> </h1>
+              <button onClick={handleLogout} className="habit-submit" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}>Logout</button>
+            </div>
+
             <p className="app-subtitle">Bitaw Gusto, Disiplina Ayaw?</p>
             <p style={{ textAlign: "center", margin: "1rem 10px", fontWeight: "bold", color: "white" }}>
               Progress Today: {progress}% ({completedCount} / {totalHabits})
@@ -145,7 +215,12 @@ export default function App() {
             <HabitInput onAdd={addHabit} />
             <ContributionCalendar history={history} />
 
-            <div className="habit-list-wrapper">
+            <div className="dashboard-grid">
+              <GoalList habits={habits} />
+              <Leaderboard />
+            </div>
+
+            <div className="habit-list-wrapper" style={{ marginTop: '1.5rem' }}>
               <HabitList
                 habits={habits}
                 onToggle={toggleHabit}
