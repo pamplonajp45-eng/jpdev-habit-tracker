@@ -15,7 +15,7 @@ export default defineConfig({
         theme_color: '#4f46e5',
         background_color: '#0a0a15',
         display: 'standalone',
-        start_url: '/jpdev-habit-tracker/',
+        start_url: '/',
         icons: [
           {
             src: 'HABBITLOGO.png',
@@ -31,5 +31,5 @@ export default defineConfig({
       }
     })
   ],
-  base: '/jpdev-habit-tracker/'
+  base: '/'
 })
