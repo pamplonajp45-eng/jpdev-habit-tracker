@@ -21,11 +21,13 @@ exports.registerUser = async (req, res) => {
         // Check if user exists
         const userExists = await User.findOne({ email });
         if (userExists) {
+            console.log('Registration failed: User already exists', email);
             return res.status(400).json({ message: 'User already exists' });
         }
 
         const usernameExists = await User.findOne({ username });
         if (usernameExists) {
+            console.log('Registration failed: Username already taken', username);
             return res.status(400).json({ message: 'Username already taken' });
         }
 
@@ -62,7 +64,7 @@ exports.registerUser = async (req, res) => {
                 userId: user._id
             });
         } catch (error) {
-            console.error(error);
+            console.error('Email sending failed during registration:', error);
             // Rollback user creation if email fails
             await User.findByIdAndDelete(user._id);
             return res.status(500).json({ message: 'Email could not be sent' });

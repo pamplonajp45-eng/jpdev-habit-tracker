@@ -23,12 +23,14 @@ const connectDB = async () => {
         await mongoose.connect(process.env.MONGODB_URI);
         console.log('MongoDB Connected...');
     } catch (err) {
-        console.error('MongoDB connection error:', err.message);
-        process.exit(1);
+        console.error('MongoDB connection error:', err);
+        // Do not exit process in serverless environment, just log error
+        // process.exit(1); 
     }
 };
 
-// Routes (Placeholder)
+// Routes
+app.use('/api/health', require('./routes/healthRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/habits', require('./routes/habitRoutes'));
 app.use('/api/heatmap', require('./routes/heatmapRoutes'));
