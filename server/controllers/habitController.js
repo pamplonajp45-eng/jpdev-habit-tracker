@@ -1,5 +1,6 @@
 const Habit = require('../models/Habit');
 const HabitHistory = require('../models/HabitHistory');
+const Goal = require('../models/Goal'); // Import Goal model
 
 // @desc    Get all habits
 // @route   GET /api/habits
@@ -143,6 +144,12 @@ exports.toggleHabitCompletion = async (req, res) => {
             habit.lastCompletedDate = lastHistory ? lastHistory.date : null;
 
             await habit.save();
+
+            // RECALCULATE GOALS (Decrement/Reset logic)
+            // If we uncheck, streak goes down. Total count goes down.
+            // Simplified: Just update based on new habit state.
+            await updateLinkedGoals(userId, habitId, habit);
+
             return res.json({ message: 'Habit unchecked', habit });
 
         } else {
@@ -172,6 +179,10 @@ exports.toggleHabitCompletion = async (req, res) => {
 
             habit.lastCompletedDate = today;
             await habit.save();
+
+            // UPDATE GOALS
+            await updateLinkedGoals(userId, habitId, habit);
+
             return res.json({ message: 'Habit checked', habit });
         }
 
@@ -204,4 +215,57 @@ const calculateStreak = async (userId, habitId) => {
         }
     }
     return streak;
+};
+
+// Helper: Update Linked Goals
+const updateLinkedGoals = async (userId, habitId, habit) => {
+    try {
+        const goals = await Goal.find({ userId, linkedHabitId: habitId, status: 'active' });
+
+        for (const goal of goals) {
+            let updated = false;
+
+            // 1. Streak Goals
+            if (goal.type === 'streak') {
+                if (goal.currentValue !== habit.streak) {
+                    goal.currentValue = habit.streak;
+                    updated = true;
+                }
+            }
+
+            // 2. Count Goals (Total or Deadline)
+            else if (goal.type === 'total_count' || goal.type === 'deadline_count') {
+                // Need to count total history
+                // Optimization: could store a counter in Habit, but for now cache query
+                const totalCount = await HabitHistory.countDocuments({
+                    userId,
+                    habitId,
+                    status: 'completed'
+                });
+
+                if (goal.currentValue !== totalCount) {
+                    goal.currentValue = totalCount;
+                    updated = true;
+                }
+            }
+
+            // Check Completion
+            if (goal.currentValue >= goal.targetValue) {
+                // Check deadline if applicable
+                if (goal.deadline && new Date() > goal.deadline) {
+                    goal.status = 'failed';
+                } else {
+                    goal.status = 'completed';
+                    goal.completedAt = Date.now();
+                }
+                updated = true;
+            }
+
+            if (updated) {
+                await goal.save();
+            }
+        }
+    } catch (err) {
+        console.error('Error updating goals:', err);
+    }
 };

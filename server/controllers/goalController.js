@@ -19,14 +19,40 @@ exports.getGoals = async (req, res) => {
 // @access  Private
 exports.createGoal = async (req, res) => {
     try {
-        const { title, targetValue, linkedHabitId } = req.body;
+        const { title, description, type, targetValue, linkedHabitId, deadline } = req.body;
+
+        // Basic validation
+        if (!linkedHabitId) {
+            return res.status(400).json({ message: 'Goals must be linked to a habit' });
+        }
+
+        // Verify habit ownership
+        const habit = await Habit.findById(linkedHabitId);
+        if (!habit || habit.userId.toString() !== req.user.id) {
+            return res.status(404).json({ message: 'Linked habit not found' });
+        }
 
         const goal = await Goal.create({
             userId: req.user.id,
             title,
+            description,
+            type,
             targetValue,
-            linkedHabitId
+            linkedHabitId,
+            deadline,
+            startDate: Date.now(),
+            status: 'active'
         });
+
+        // Initialize progress based on current habit state if applicable
+        if (type === 'streak' && habit.streak > 0) {
+            goal.currentValue = habit.streak;
+            if (goal.currentValue >= goal.targetValue) {
+                goal.status = 'completed';
+                goal.completedAt = Date.now();
+            }
+            await goal.save();
+        }
 
         res.status(201).json(goal);
     } catch (error) {
