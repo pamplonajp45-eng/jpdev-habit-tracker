@@ -29,7 +29,7 @@ const UserSchema = new mongoose.Schema({
     },
     verificationCode: {
         type: String,
-        select: false // Don't return by default
+        select: false // ito yung verfication code na magsesend sa gmail ng user
     },
     verificationCodeExpires: {
         type: Date,

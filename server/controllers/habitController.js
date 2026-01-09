@@ -15,6 +15,21 @@ exports.getHabits = async (req, res) => {
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
 
+        // Strict Streak Validation: Reset streak if broken (missed yesterday)
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        for (const habit of habits) {
+            if (habit.streak > 0) {
+                // If lastCompletedDate is missing or older than yesterday, reset streak
+                const lastCompleted = habit.lastCompletedDate ? new Date(habit.lastCompletedDate) : null;
+                if (!lastCompleted || lastCompleted < yesterday) {
+                    habit.streak = 0;
+                    await habit.save();
+                }
+            }
+        }
+
         const historyToday = await HabitHistory.find({
             userId: req.user.id,
             date: { $gte: today, $lt: tomorrow },
