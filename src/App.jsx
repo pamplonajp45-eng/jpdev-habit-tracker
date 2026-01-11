@@ -163,15 +163,25 @@ export default function App() {
   }
 
   async function deleteHabit(id) {
+    // 1. Optimistic Update
+    const originalHabits = [...habits];
+
+    // Remove immediately from UI
+    setHabits(habits.filter((h) => h._id !== id));
+    playSound('delete');
+
     try {
+      // 2. Network Request
       await api.delete(`/habits/${id}`);
-      setHabits(habits.filter((h) => h._id !== id));
-      playSound('delete');
+
       // Refresh heatmap
       const heatmapRes = await api.get('/heatmap');
       setHistory(heatmapRes.data);
     } catch (err) {
       console.error("Failed to delete habit", err);
+      // 3. Rollback on Error
+      setHabits(originalHabits);
+      alert("Failed to delete habit. Please try again.");
     }
   }
 
