@@ -104,22 +104,40 @@ export default function App() {
   }
 
   async function toggleHabit(id) {
+    // 1. Optimistic Update
+    const originalHabits = [...habits];
+    const targetHabit = habits.find(h => h._id === id);
+
+    if (!targetHabit) return;
+
+    // Optimistically toggle the local state
+    const isNowCompleted = !targetHabit.completedToday;
+    const optimisticStreak = isNowCompleted
+      ? targetHabit.streak + 1 // If we are checking it, streak likely goes up (simplified logic for UI feedback)
+      : Math.max(0, targetHabit.streak - 1); // If unchecking, streak might go down
+
+    setHabits(habits.map(h =>
+      h._id === id
+        ? { ...h, completedToday: isNowCompleted, streak: optimisticStreak }
+        : h
+    ));
+
+    // Play sound immediately for better feedback
+    if (isNowCompleted) playSound('toggle');
+
     try {
+      // 2. Network Request
       const res = await api.post(`/habits/${id}/toggle`);
       const updatedHabit = res.data.habit;
-      // We need to know if it was checked or unchecked.
-      // The backend returns the updated habit structure.
-      // Our frontend 'habits' state uses 'completedToday'.
+      const serverCompletedStatus = res.data.message === 'Habit checked';
 
-      const isCompletedNow = res.data.message === 'Habit checked';
-
-      setHabits(habits.map((h) =>
+      // 3. Reconcile with Server Data (if needed)
+      // Usually the optimistic state matches, but we sync just to be safe with the exact streak from server
+      setHabits(currentHabits => currentHabits.map((h) =>
         h._id === id
-          ? { ...h, completedToday: isCompletedNow, streak: updatedHabit.streak }
+          ? { ...h, completedToday: serverCompletedStatus, streak: updatedHabit.streak }
           : h
       ));
-
-      playSound('toggle');
 
       // Refresh heatmap
       const heatmapRes = await api.get('/heatmap');
@@ -127,6 +145,9 @@ export default function App() {
 
     } catch (err) {
       console.error("Failed to toggle habit", err);
+      // 4. Rollback on Error
+      setHabits(originalHabits);
+      alert("Failed to update habit. Please try again.");
     }
   }
 
