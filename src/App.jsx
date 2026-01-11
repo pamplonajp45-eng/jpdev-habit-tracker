@@ -20,6 +20,7 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
   const [totalHabits, setTotalHabits] = useState(0);
+  const [togglingIds, setTogglingIds] = useState(new Set());
 
   // Check for existing token
   useEffect(() => {
@@ -110,6 +111,9 @@ export default function App() {
 
     if (!targetHabit) return;
 
+    // Add to togglingIds to disable interaction
+    setTogglingIds(prev => new Set(prev).add(id));
+
     // Optimistically toggle the local state
     const isNowCompleted = !targetHabit.completedToday;
     const optimisticStreak = isNowCompleted
@@ -148,6 +152,13 @@ export default function App() {
       // 4. Rollback on Error
       setHabits(originalHabits);
       alert("Failed to update habit. Please try again.");
+    } finally {
+      // Remove from togglingIds
+      setTogglingIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   }
 
@@ -247,6 +258,7 @@ export default function App() {
                 onToggle={toggleHabit}
                 onDelete={deleteHabit}
                 onEdit={editHabit}
+                togglingIds={togglingIds}
               />
               {habits.length === 0 && (
                 <p className="text-center text-gray-500 mt-4">

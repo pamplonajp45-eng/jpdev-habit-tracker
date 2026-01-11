@@ -5,7 +5,7 @@ import fire4 from "../assets/fire/fire4.png";
 import fire5 from "../assets/fire/fire5.png";
 
 
-export default function HabitList({ habits, onToggle, onDelete, onEdit }) {
+export default function HabitList({ habits, onToggle, onDelete, onEdit, togglingIds }) {
   return (
     <ul className="habit-list">
       {habits.map((habit) => (
@@ -27,6 +27,11 @@ export default function HabitList({ habits, onToggle, onDelete, onEdit }) {
               checked={habit.completedToday}
               onChange={() => onToggle(habit._id)}
               className="habit-checkbox"
+              disabled={togglingIds && togglingIds.has(habit._id)}
+              style={{
+                opacity: togglingIds && togglingIds.has(habit._id) ? 0.5 : 1,
+                cursor: togglingIds && togglingIds.has(habit._id) ? 'not-allowed' : 'pointer'
+              }}
             />
 
             <div className="habit-text">
