@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'favicon.ico', 'robots.txt', 'HABBITLOGO.png', 'HABBITLOGO.png'],
+      includeAssets: ['favicon.svg', 'favicon.ico', 'robots.txt', 'HABBITLOGO.png'],
       manifest: {
         name: 'Habit Tracker',
         short_name: 'HBT',
