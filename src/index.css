@@ -1,5 +1,5 @@
 /* Modern Native App Design - Mobile First & Responsive */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
 
 :root {
   --bg-primary: #0f0f1e;
@@ -22,7 +22,12 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   background: linear-gradient(180deg, #0a0a15 0%, #1a1a2e 100%);
   color: var(--text-primary);
   min-height: 100vh;
@@ -41,7 +46,11 @@ body {
   padding: 1rem;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, rgba(102, 126, 234, 0.1) 0%, transparent 40%);
+  background: linear-gradient(
+    180deg,
+    rgba(102, 126, 234, 0.1) 0%,
+    transparent 40%
+  );
   /* Safe area for iOS notch and bottom bar */
   padding-top: max(1rem, env(safe-area-inset-top));
   padding-bottom: max(1rem, env(safe-area-inset-bottom));
@@ -55,6 +64,153 @@ body {
   width: 100%;
   flex: 1;
 }
+/* Modern Bottom Navigation - iOS/Android Style */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  background: rgba(26, 26, 46, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  transition: transform 0.3s ease;
+}
+
+.bottom-nav button {
+  position: relative;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 70px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Icon container for animations */
+.bottom-nav button::before {
+  content: attr(data-icon);
+  font-size: 1.5rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hover effect (only on non-touch devices) */
+@media (hover: hover) {
+  .bottom-nav button:hover {
+    color: var(--accent);
+    transform: translateY(-2px);
+  }
+}
+
+/* Active state with modern accent */
+.bottom-nav button.active {
+  color: var(--text-primary);
+  background: rgba(99, 102, 241, 0.15);
+}
+
+.bottom-nav button.active::before {
+  transform: scale(1.1);
+  filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.6));
+}
+
+/* Animated indicator dot */
+.bottom-nav button.active::after {
+  content: "";
+  position: absolute;
+  top: 0.25rem;
+  width: 4px;
+  height: 4px;
+  background: var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.8);
+  animation: pulseIndicator 2s ease-in-out infinite;
+}
+
+@keyframes pulseIndicator {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+}
+
+/* Active tab press animation */
+.bottom-nav button:active {
+  transform: scale(0.95);
+}
+
+/* Ripple effect on tap */
+.bottom-nav button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: radial-gradient(
+    circle,
+    rgba(99, 102, 241, 0.3) 0%,
+    transparent 70%
+  );
+  opacity: 0;
+  transform: scale(0);
+  transition: all 0.4s ease-out;
+}
+
+.bottom-nav button:active::after {
+  opacity: 1;
+  transform: scale(1.5);
+}
+
+/* Hide scrollbar when bottom nav is present */
+body {
+  padding-bottom: 80px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 375px) {
+  .bottom-nav button {
+    min-width: 60px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.65rem;
+  }
+
+  .bottom-nav button::before {
+    font-size: 1.3rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .bottom-nav {
+    padding: 0.75rem 2rem;
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+
+  .bottom-nav button {
+    min-width: 90px;
+    padding: 0.6rem 1.25rem;
+  }
+}
 
 .dashboard-grid {
   display: grid;
@@ -65,7 +221,7 @@ body {
 
 /* Header */
 .app-title {
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   font-size: clamp(2rem, 8vw, 2.75rem);
   font-weight: 800;
   text-align: center;
@@ -139,7 +295,11 @@ body {
 
 /* Celebration */
 .celebration {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(102, 126, 234, 0.1) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(16, 185, 129, 0.1) 0%,
+    rgba(102, 126, 234, 0.1) 100%
+  );
   border: 1px solid rgba(16, 185, 129, 0.2);
   padding: 1rem;
   border-radius: 16px;
@@ -187,7 +347,7 @@ body {
   font-size: clamp(0.875rem, 3vw, 1rem);
   color: var(--text-primary);
   transition: all 0.3s ease;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   /* Better mobile input */
   -webkit-appearance: none;
   appearance: none;
@@ -353,7 +513,7 @@ body {
 }
 
 .habit-checkbox:checked::after {
-  content: '✓';
+  content: "✓";
   position: absolute;
   top: 50%;
   left: 50%;
@@ -415,7 +575,6 @@ body {
 }
 
 @keyframes flicker {
-
   0%,
   100% {
     opacity: 1;
@@ -622,7 +781,9 @@ body {
   height: 7px;
   border-radius: 1px;
   background: rgba(255, 255, 255, 0.05);
-  transition: transform 0.2s ease, filter 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    filter 0.2s ease;
 }
 
 .calendar-square:hover {
@@ -694,7 +855,7 @@ input[type="text"] {
   border-radius: 8px;
   color: var(--text-primary);
   font-size: clamp(0.875rem, 3vw, 1rem);
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   outline: none;
   transition: border-color 0.3s ease;
   -webkit-appearance: none;
