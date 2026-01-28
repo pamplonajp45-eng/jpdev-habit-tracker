@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import api from '../../utils/api';
 
-const Login = ({ onSuccess, onSwitchToRegister }) => {
+const Login = ({ onSuccess, onSwitchToRegister, onForgotPassword }) => {
     const [formData, setFormData] = useState({ email: '', password: '' });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -51,6 +51,13 @@ const Login = ({ onSuccess, onSwitchToRegister }) => {
                 />
                 <button type="submit" className="habit-submit" disabled={loading}>
                     {loading ? 'Logging in...' : 'Login'}
+                </button>
+                <button
+                    type="button"
+                    onClick={onForgotPassword}
+                    style={{ background: 'none', border: 'none', color: '#a0a0b8', cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                    Forgot Password?
                 </button>
             </form>
             <p style={{ marginTop: '1rem', textAlign: 'center', color: '#a0a0b8' }}>

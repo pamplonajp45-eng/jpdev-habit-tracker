@@ -156,3 +156,86 @@ exports.loginUser = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
+
+// @desc    Request Password Reset Code
+// @route   POST /api/auth/forgot-password
+// @access  Public
+exports.forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            // We return 200 even if user not found for security, but for a habit tracker, 404 is clearer
+            return res.status(404).json({ message: 'User with that email does not exist' });
+        }
+
+        // Generate Reset Code (6 digits)
+        const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const resetCodeExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+        user.resetCode = resetCode;
+        user.resetCodeExpires = resetCodeExpires;
+        await user.save();
+
+        // Send email
+        const message = `Your password reset code is: ${resetCode}. It expires in 10 minutes.`;
+
+        try {
+            await sendEmail({
+                email: user.email,
+                subject: 'HaBITAW Password Reset Code',
+                message,
+                html: `<h1>Reset Your Password</h1><p>Your 6-digit reset code is: <strong>${resetCode}</strong></p><p>This code will expire in 10 minutes.</p>`
+            });
+
+            res.status(200).json({ message: 'Reset code sent to email' });
+        } catch (error) {
+            console.error('Email sending failed during forgot password:', error);
+            user.resetCode = undefined;
+            user.resetCodeExpires = undefined;
+            await user.save();
+            return res.status(500).json({ message: 'Email could not be sent' });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// @desc    Reset Password
+// @route   POST /api/auth/reset-password
+// @access  Public
+exports.resetPassword = async (req, res) => {
+    try {
+        const { email, code, newPassword } = req.body;
+
+        const user = await User.findOne({ email }).select('+resetCode +resetCodeExpires');
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        if (!user.resetCode || user.resetCode !== code) {
+            return res.status(400).json({ message: 'Invalid reset code' });
+        }
+
+        if (user.resetCodeExpires < Date.now()) {
+            return res.status(400).json({ message: 'Reset code expired' });
+        }
+
+        // Hash new password
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+
+        // Clear reset fields
+        user.resetCode = undefined;
+        user.resetCodeExpires = undefined;
+        await user.save();
+
+        res.status(200).json({ message: 'Password reset successful. Please login with your new password.' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};

@@ -15,6 +15,12 @@
   --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
+.habit-app-root {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  background-attachment: fixed;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -46,11 +52,9 @@ body {
   padding: 1rem;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(
-    180deg,
-    rgba(102, 126, 234, 0.1) 0%,
-    transparent 40%
-  );
+  background: linear-gradient(180deg,
+      rgba(102, 126, 234, 0.1) 0%,
+      transparent 40%);
   /* Safe area for iOS notch and bottom bar */
   padding-top: max(1rem, env(safe-area-inset-top));
   padding-bottom: max(1rem, env(safe-area-inset-bottom));
@@ -64,25 +68,32 @@ body {
   width: 100%;
   flex: 1;
 }
-/* Modern Bottom Navigation - iOS/Android Style */
+
+/* Modern Floating Bottom Navigation - Habbitie Style */
 .bottom-nav {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
-  background: rgba(26, 26, 46, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 48px);
+  max-width: 400px;
+  background: rgba(26, 26, 46, 0.9);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
   display: flex;
   justify-content: space-around;
   align-items: center;
-  padding: 0.5rem 1rem;
-  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.3);
+  padding: 0.75rem 1rem;
+  border-radius: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
   z-index: 100;
-  transition: transform 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.bottom-nav:hover {
+  transform: translateX(-50%) translateY(-5px);
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.5);
 }
 
 .bottom-nav button {
@@ -131,6 +142,81 @@ body {
   filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.6));
 }
 
+/* Specialized Central Add Button */
+.nav-add-btn {
+  position: relative;
+  width: 60px !important;
+  height: 60px !important;
+  min-width: 60px !important;
+  background: var(--gradient) !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transform: translateY(-25px);
+  box-shadow: 0 10px 25px rgba(102, 126, 234, 0.5);
+  border: 4px solid var(--bg-primary) !important;
+  z-index: 101;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+}
+
+.nav-add-btn .plus-icon {
+  font-size: 2.5rem;
+  color: white;
+  line-height: 1;
+  font-weight: 300;
+  transition: transform 0.3s ease;
+}
+
+.nav-add-btn:hover {
+  transform: translateY(-30px) scale(1.1);
+  box-shadow: 0 15px 35px rgba(102, 126, 234, 0.6);
+}
+
+.nav-add-btn:active {
+  transform: translateY(-25px) scale(0.9);
+}
+
+.nav-add-btn.active {
+  background: var(--text-primary) !important;
+}
+
+.nav-add-btn.active .plus-icon {
+  color: var(--accent);
+  transform: rotate(45deg);
+}
+
+/* Page Title for Separate Tabs */
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 1.5rem;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.add-habit-page {
+  animation: slideUp 0.4s ease-out;
+}
+
+.cancel-btn {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--card-border);
+  color: var(--text-secondary);
+  padding: 1rem;
+  border-radius: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 1rem;
+  transition: all 0.3s ease;
+}
+
+.cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
 /* Animated indicator dot */
 .bottom-nav button.active::after {
   content: "";
@@ -145,11 +231,13 @@ body {
 }
 
 @keyframes pulseIndicator {
+
   0%,
   100% {
     opacity: 1;
     transform: scale(1);
   }
+
   50% {
     opacity: 0.6;
     transform: scale(1.2);
@@ -167,11 +255,9 @@ body {
   position: absolute;
   inset: 0;
   border-radius: 12px;
-  background: radial-gradient(
-    circle,
-    rgba(99, 102, 241, 0.3) 0%,
-    transparent 70%
-  );
+  background: radial-gradient(circle,
+      rgba(99, 102, 241, 0.3) 0%,
+      transparent 70%);
   opacity: 0;
   transform: scale(0);
   transition: all 0.4s ease-out;
@@ -219,22 +305,131 @@ body {
   margin-top: 1rem;
 }
 
-/* Header */
+/* Header Redesign */
+.app-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.user-greeting {
+  text-align: left;
+}
+
+.greeting-text {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.app-title-container {
+  margin-bottom: 2rem;
+}
+
 .app-title {
   font-family: "Inter", sans-serif;
-  font-size: clamp(2rem, 8vw, 2.75rem);
+  font-size: clamp(2rem, 8vw, 3rem);
   font-weight: 800;
   text-align: center;
   margin-bottom: 0.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #a78bfa 100%);
+  background: var(--gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   letter-spacing: -0.04em;
   text-transform: uppercase;
-  /* Prevent text selection */
-  -webkit-user-select: none;
-  user-select: none;
+}
+
+.app-subtitle {
+  font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+  color: var(--text-secondary);
+  text-align: center;
+  font-weight: 500;
+  margin-bottom: 1.5rem;
+  font-style: italic;
+}
+
+.logout-pill {
+  background: rgba(239, 68, 68, 0.1);
+  color: #fb7185;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+/* Progress Summary Card */
+.progress-summary-card {
+  background: var(--gradient);
+  border-radius: 28px;
+  padding: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 15px 35px rgba(102, 126, 234, 0.3);
+  color: white;
+}
+
+.progress-info h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+}
+
+.progress-stats {
+  display: flex;
+  flex-direction: column;
+}
+
+.stats-main {
+  font-size: 1.75rem;
+  font-weight: 800;
+}
+
+.stats-sub {
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.progress-circle-container {
+  width: 80px;
+  height: 80px;
+}
+
+.progress-circle {
+  width: 100%;
+  height: 100%;
+}
+
+.circle-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.2);
+  stroke-width: 3.8;
+}
+
+.circle {
+  fill: none;
+  stroke: white;
+  stroke-width: 3.8;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.6s ease;
+}
+
+.percentage {
+  fill: white;
+  font-size: 0.5rem;
+  font-weight: 700;
+  text-anchor: middle;
 }
 
 /* Progress Card */
@@ -243,10 +438,10 @@ body {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--card-border);
-  border-radius: 16px;
-  padding: 1.25rem;
-  margin-bottom: 1.25rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  border-radius: 28px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
 }
 
 .progress-header {
@@ -295,11 +490,9 @@ body {
 
 /* Celebration */
 .celebration {
-  background: linear-gradient(
-    135deg,
-    rgba(16, 185, 129, 0.1) 0%,
-    rgba(102, 126, 234, 0.1) 100%
-  );
+  background: linear-gradient(135deg,
+      rgba(16, 185, 129, 0.1) 0%,
+      rgba(102, 126, 234, 0.1) 100%);
   border: 1px solid rgba(16, 185, 129, 0.2);
   padding: 1rem;
   border-radius: 16px;
@@ -327,68 +520,131 @@ body {
   }
 }
 
-/* Habit Input */
+/* Habit Input Restoration */
 .habit-form {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1.25rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  background: var(--card-bg);
+  padding: 1.5rem;
+  border-radius: 28px;
+  border: 1px solid var(--card-border);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
 .habit-textbox {
-  flex: 1;
-  min-width: 200px;
-  background: var(--card-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  width: 100%;
+  background: rgba(0, 0, 0, 0.2);
   border: 1px solid var(--card-border);
-  padding: 0.875rem 1rem;
-  border-radius: 14px;
-  font-size: clamp(0.875rem, 3vw, 1rem);
-  color: var(--text-primary);
+  padding: 1.25rem;
+  border-radius: 20px;
+  font-size: 1rem;
+  color: white;
   transition: all 0.3s ease;
-  font-family: "Inter", sans-serif;
-  /* Better mobile input */
-  -webkit-appearance: none;
-  appearance: none;
+  outline: none;
 }
 
 .habit-textbox:focus {
-  outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
-
-.habit-textbox::placeholder {
-  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
 }
 
 .habit-submit {
   background: var(--gradient);
   border: none;
-  padding: 0.875rem 1.5rem;
-  border-radius: 14px;
-  font-size: clamp(0.875rem, 3vw, 1rem);
-  font-weight: 600;
+  padding: 1rem;
+  border-radius: 20px;
   color: white;
+  font-weight: 700;
+  font-size: 1.1rem;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
-  white-space: nowrap;
-  /* Better tap target for mobile */
-  min-height: 44px;
-  /* Prevent iOS zoom on tap */
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
 }
 
 .habit-submit:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
 }
 
 .habit-submit:active {
   transform: translateY(0);
+}
+
+/* Frequency Panel Restoration */
+.frequency-selector {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 20px;
+  padding: 1.25rem;
+  border: 1px solid var(--card-border);
+}
+
+.frequency-selector label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.frequency-dropdown {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--card-border);
+  color: white;
+  padding: 0.85rem;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  outline: none;
+  cursor: pointer;
+  margin-bottom: 1rem;
+}
+
+.days-row-new {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.day-pill {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--card-border);
+  background: none;
+  color: var(--text-secondary);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.day-pill.selected {
+  background: var(--gradient);
+  border-color: transparent;
+  color: white;
+  transform: scale(1.1);
+}
+
+.custom-interval-new {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.interval-input-new {
+  width: 60px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 8px;
+  color: white;
+  text-align: center;
+  font-weight: 800;
+  outline: none;
 }
 
 /* Habit List */
@@ -397,9 +653,9 @@ body {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--card-border);
-  border-radius: 16px;
-  padding: 0.75rem;
-  height: 350px;
+  border-radius: 28px;
+  padding: 1rem;
+  height: 400px;
   /* Fixed height for consistent layout */
   overflow-y: auto;
   overflow-x: hidden;
@@ -427,51 +683,175 @@ body {
   background: rgba(255, 255, 255, 0.15);
 }
 
-.habit-list {
+/* Habit Card Redesign */
+.habit-card {
   list-style: none;
-  padding: 0;
-  margin: 0;
+  background: var(--card-bg) !important;
+  border: 1px solid var(--card-border) !important;
+  border-radius: 24px !important;
+  margin-bottom: 1rem;
+  padding: 1rem !important;
+  min-height: auto !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+  position: relative;
+  overflow: hidden;
 }
 
-.habit-list li {
+.habit-card.completed {
+  background: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.habit-card-content {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.875rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 14px;
-  margin-bottom: 0.625rem;
+  gap: 1rem;
+  width: 100%;
+}
+
+.habit-card-left {
+  flex-shrink: 0;
+}
+
+.habit-icon-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.25rem;
+  color: white;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.habit-card-middle {
+  flex: 1;
+  min-width: 0;
+}
+
+.habit-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.habit-name-text {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.habit-name-text.checked {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.fire-streak-mini {
+  display: flex;
+  gap: 2px;
+}
+
+.fire-icon-small {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+
+.habit-card-info {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.streak-label {
+  display: block;
+  font-weight: 500;
+}
+
+.habit-card-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Custom Checkbox */
+.checkbox-wrapper {
+  position: relative;
+  width: 32px;
+  height: 32px;
+}
+
+.habit-checkbox-custom {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.checkbox-ui {
+  position: absolute;
+  inset: 0;
+  border: 2px solid;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.3s ease;
-  animation: slideIn 0.3s ease-out;
-  /* Better tap targets */
-  min-height: 60px;
-  gap: 0.5rem;
+  z-index: 1;
 }
 
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.check-mark {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1rem;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-/* Remove hover effects on touch devices */
-@media (hover: hover) {
-  .habit-list li:hover {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.1);
-    transform: translateY(-2px);
-  }
+.habit-checkbox-custom:checked+.checkbox-ui .check-mark {
+  opacity: 1;
+  transform: scale(1);
 }
 
-.habit-list li:last-child {
-  margin-bottom: 0;
+.delete-btn-mini {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  padding: 4px;
+  cursor: pointer;
+  opacity: 0.3;
+  transition: all 0.3s ease;
+}
+
+.delete-btn-mini:hover {
+  opacity: 1;
+  color: var(--danger);
+}
+
+.editing-input {
+  background: rgba(0, 0, 0, 0.2) !important;
+  border: 1px solid var(--accent) !important;
+  border-radius: 8px !important;
+  padding: 4px 8px !important;
+  font-size: 0.9rem !important;
+  color: white !important;
+  outline: none;
 }
 
 .habit-item-container {
@@ -575,6 +955,7 @@ body {
 }
 
 @keyframes flicker {
+
   0%,
   100% {
     opacity: 1;
@@ -916,4 +1297,21 @@ input[type="text"]:focus {
   .fire-streak {
     display: none;
   }
+}
+
+.not-due {
+  opacity: 0.7;
+}
+
+.not-due-label {
+  font-size: 0.75rem;
+  color: #ff9f43;
+  font-style: italic;
+  display: block;
+  margin-top: 2px;
+}
+
+.habit-checkbox:disabled {
+  border-color: #444 !important;
+  background-color: #222 !important;
 }

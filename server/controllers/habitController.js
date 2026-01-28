@@ -21,9 +21,11 @@ exports.getHabits = async (req, res) => {
 
         for (const habit of habits) {
             if (habit.streak > 0) {
-                // If lastCompletedDate is missing or older than yesterday, reset streak
                 const lastCompleted = habit.lastCompletedDate ? new Date(habit.lastCompletedDate) : null;
-                if (!lastCompleted || lastCompleted < yesterday) {
+                const prevDueDate = getPreviousDueDate(habit, today);
+
+                // If lastCompleted is older than the previous due date, streak is broken
+                if (!lastCompleted || lastCompleted < prevDueDate) {
                     habit.streak = 0;
                     await habit.save();
                 }
@@ -40,7 +42,8 @@ exports.getHabits = async (req, res) => {
 
         const habitsWithStatus = habits.map(habit => ({
             ...habit.toObject(),
-            completedToday: completedHabitIds.has(habit._id.toString())
+            completedToday: completedHabitIds.has(habit._id.toString()),
+            isDueToday: isHabitDue(habit, today)
         }));
 
         res.json(habitsWithStatus);
@@ -55,13 +58,13 @@ exports.getHabits = async (req, res) => {
 // @access  Private
 exports.createHabit = async (req, res) => {
     try {
-        const { name, goal, schedule } = req.body;
+        const { name, frequencyType, frequencyData } = req.body;
 
         const habit = await Habit.create({
             userId: req.user.id,
             name,
-            goal,
-            schedule
+            frequencyType,
+            frequencyData
         });
 
         res.status(201).json(habit);
@@ -176,20 +179,18 @@ exports.toggleHabitCompletion = async (req, res) => {
                 status: 'completed'
             });
 
-            const yesterday = new Date(today);
-            yesterday.setDate(yesterday.getDate() - 1);
-
-            // Check if completed yesterday
-            const completedYesterday = await HabitHistory.findOne({
+            // Check if completed on the previous due date to continue streak
+            const prevDueDate = getPreviousDueDate(habit, today);
+            const completedPrev = await HabitHistory.findOne({
                 userId,
                 habitId,
-                date: yesterday
+                date: prevDueDate
             });
 
-            if (completedYesterday) {
+            if (completedPrev) {
                 habit.streak += 1;
             } else {
-                habit.streak = 1; // Reset or start new
+                habit.streak = 1; // Start/Reset streak
             }
 
             habit.lastCompletedDate = today;
@@ -283,4 +284,57 @@ const updateLinkedGoals = async (userId, habitId, habit) => {
     } catch (err) {
         console.error('Error updating goals:', err);
     }
+};
+
+// Helper: Get previous due date for a habit
+const getPreviousDueDate = (habit, today) => {
+    const prev = new Date(today);
+
+    if (habit.frequencyType === 'daily') {
+        prev.setDate(prev.getDate() - 1);
+        return prev;
+    }
+
+    if (habit.frequencyType === 'weekly') {
+        // Look back day by day until we find a match in frequencyData
+        const scheduledDays = new Set(habit.frequencyData);
+        for (let i = 1; i <= 7; i++) {
+            const checkDate = new Date(today);
+            checkDate.setDate(checkDate.getDate() - i);
+            if (scheduledDays.has(checkDate.getDay())) {
+                return checkDate;
+            }
+        }
+        // Fallback to 7 days ago if none found (shouldn't happen with valid data)
+        prev.setDate(prev.getDate() - 7);
+        return prev;
+    }
+
+    if (habit.frequencyType === 'custom') {
+        const interval = habit.frequencyData[0] || 1;
+        prev.setDate(prev.getDate() - interval);
+        return prev;
+    }
+
+    return prev;
+};
+
+// Helper: Check if habit is due today
+const isHabitDue = (habit, date) => {
+    if (habit.frequencyType === 'daily') return true;
+
+    if (habit.frequencyType === 'weekly') {
+        return habit.frequencyData.includes(date.getDay());
+    }
+
+    if (habit.frequencyType === 'custom') {
+        const interval = habit.frequencyData[0] || 1;
+        const start = new Date(habit.createdAt);
+        const startUTC = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+        const dateUTC = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+        const diffDays = Math.floor((dateUTC - startUTC) / (1000 * 60 * 60 * 24));
+        return diffDays % interval === 0;
+    }
+
+    return true;
 };

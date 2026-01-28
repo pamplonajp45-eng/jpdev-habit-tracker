@@ -11,15 +11,14 @@ const HabitSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
-    goal: {
+    frequencyType: {
         type: String,
-        enum: ['daily', 'weekly', 'monthly'],
+        enum: ['daily', 'weekly', 'custom'],
         default: 'daily'
     },
-    schedule: {
-        morning: { type: Boolean, default: false },
-        afternoon: { type: Boolean, default: false },
-        evening: { type: Boolean, default: false }
+    frequencyData: {
+        type: [Number], // For weekly: [0,1,2] (Sun, Mon, Tue); For custom: [interval]
+        default: []
     },
     streak: {
         type: Number,

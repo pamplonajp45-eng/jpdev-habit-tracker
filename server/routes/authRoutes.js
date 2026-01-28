@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { registerUser, loginUser, verifyEmail } = require('../controllers/authController');
+const { registerUser, loginUser, verifyEmail, forgotPassword, resetPassword } = require('../controllers/authController');
 const { check, validationResult } = require('express-validator');
 
 const validateRegister = [
@@ -24,5 +24,15 @@ const validate = (req, res, next) => {
 router.post('/register', validateRegister, validate, registerUser);
 router.post('/verify', verifyEmail);
 router.post('/login', loginUser);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', [
+    check('email', 'Please include a valid email').isEmail(),
+    check('code', 'Code is required').not().isEmpty(),
+    check('newPassword')
+        .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+        .matches(/[A-Z]/).withMessage('Password must contain at least one uppercase letter')
+        .matches(/\d/).withMessage('Password must contain at least one number')
+        .matches(/[!@#$%^&*(),.?":{}|<>]/).withMessage('Password must contain at least one special character')
+], validate, resetPassword);
 
 module.exports = router;

@@ -7,187 +7,59 @@ import Register from "./components/Auth/Register";
 import VerifyEmail from "./components/Auth/VerifyEmail";
 import GoalList from "./components/GoalList";
 import Leaderboard from "./components/Leaderboard";
-import api from "./utils/api";
+import ForgotPassword from "./components/Auth/ForgotPassword";
+import ResetPassword from "./components/Auth/ResetPassword";
 import "./index.css";
+import { useAuth } from "./hooks/useAuth";
+import { useHabits } from "./hooks/useHabits";
 
 export default function App() {
-  const [user, setUser] = useState(null);
-  const [authStep, setAuthStep] = useState("login");
-  const [tempAuthData, setTempAuthData] = useState(null);
+  const {
+    user, setUser, authStep, setAuthStep, tempAuthData, setTempAuthData, logout
+  } = useAuth();
 
-  const [habits, setHabits] = useState([]);
-  const [history, setHistory] = useState([]);
+  const [greeting, setGreeting] = useState("");
+
+  useEffect(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) setGreeting("Good Morning");
+    else if (hour < 18) setGreeting("Good Afternoon");
+    else setGreeting("Good Evening");
+  }, []);
+
+  const {
+    habits, history, togglingIds, addHabit, editHabit, toggleHabit, deleteHabit, refreshHabits, setHabits, setHistory
+  } = useHabits(user);
+
   const [progress, setProgress] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
   const [totalHabits, setTotalHabits] = useState(0);
-  const [togglingIds, setTogglingIds] = useState(new Set());
   const [activeTab, setActiveTab] = useState("home");
-
-  // Check for existing token on mount
-  useEffect(() => {
-    const checkAuth = async () => {
-      const token = localStorage.getItem("token");
-      if (token) {
-        setUser({ loggedIn: true });
-        fetchData();
-      }
-    };
-    checkAuth();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      const [habitsRes, heatmapRes] = await Promise.all([
-        api.get("/habits"),
-        api.get("/heatmap"),
-      ]);
-      setHabits(habitsRes.data);
-      setHistory(heatmapRes.data);
-    } catch (error) {
-      console.error("Error fetching data", error);
-    }
-  };
 
   // Recalculate progress when habits change
   useEffect(() => {
-    const completed = habits.filter((h) => h.completedToday).length;
-    const total = habits.length;
+    const dueToday = habits.filter((h) => h.isDueToday);
+    const completed = dueToday.filter((h) => h.completedToday).length;
+    const total = dueToday.length;
     setCompletedCount(completed);
     setTotalHabits(total);
     setProgress(total > 0 ? Math.round((completed / total) * 100) : 0);
   }, [habits]);
 
-  const playSound = (type) => {
-    const soundMap = {
-      add: "add.mp3",
-      delete: "delete.mp3",
-      toggle: "toggle.mp3",
-      celebrate: "celebration.mp3",
-    };
-
-    const src = soundMap[type];
-    if (!src) return;
-
-    try {
-      const audio = new Audio(src);
-      audio.volume = 1;
-      audio.play().catch(() => {});
-    } catch (e) {
-      // Silently fail if audio can't play
-    }
-  };
-
   // Play celebration sound when all habits completed
   useEffect(() => {
     if (progress === 100 && habits.length > 0) {
-      setTimeout(() => playSound("celebrate"), 100);
+      const audio = new Audio("celebration.mp3");
+      audio.play().catch(() => { });
     }
   }, [progress, habits.length]);
 
-  async function addHabit(name) {
-    try {
-      const res = await api.post("/habits", { name });
-      setHabits((prev) => [{ ...res.data, completedToday: false }, ...prev]);
-      playSound("add");
-    } catch (err) {
-      console.error("Failed to add habit", err);
-    }
-  }
-
-  async function editHabit(id, newName) {
-    try {
-      const res = await api.put(`/habits/${id}`, { name: newName });
-      setHabits((prev) =>
-        prev.map((habit) =>
-          habit._id === id ? { ...habit, name: res.data.name } : habit,
-        ),
-      );
-    } catch (err) {
-      console.error("Failed to edit habit", err);
-    }
-  }
-
-  async function toggleHabit(id) {
-    const originalHabits = [...habits];
-    const targetHabit = habits.find((h) => h._id === id);
-
-    if (!targetHabit) return;
-
-    setTogglingIds((prev) => new Set(prev).add(id));
-
-    const isNowCompleted = !targetHabit.completedToday;
-    const optimisticStreak = isNowCompleted
-      ? targetHabit.streak + 1
-      : Math.max(0, targetHabit.streak - 1);
-
-    setHabits((prev) =>
-      prev.map((h) =>
-        h._id === id
-          ? { ...h, completedToday: isNowCompleted, streak: optimisticStreak }
-          : h,
-      ),
-    );
-
-    if (isNowCompleted) playSound("toggle");
-
-    try {
-      const res = await api.post(`/habits/${id}/toggle`);
-      const updatedHabit = res.data.habit;
-      const serverCompletedStatus = res.data.message === "Habit checked";
-
-      setHabits((prev) =>
-        prev.map((h) =>
-          h._id === id
-            ? {
-                ...h,
-                completedToday: serverCompletedStatus,
-                streak: updatedHabit.streak,
-              }
-            : h,
-        ),
-      );
-
-      const heatmapRes = await api.get("/heatmap");
-      setHistory(heatmapRes.data);
-    } catch (err) {
-      console.error("Failed to toggle habit", err);
-      setHabits(originalHabits);
-      alert("Failed to update habit. Please try again.");
-    } finally {
-      setTogglingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-    }
-  }
-
-  async function deleteHabit(id) {
-    const originalHabits = [...habits];
-
-    setHabits((prev) => prev.filter((h) => h._id !== id));
-    playSound("delete");
-
-    try {
-      await api.delete(`/habits/${id}`);
-      const heatmapRes = await api.get("/heatmap");
-      setHistory(heatmapRes.data);
-    } catch (err) {
-      console.error("Failed to delete habit", err);
-      setHabits(originalHabits);
-      alert("Failed to delete habit. Please try again.");
-    }
-  }
-
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    setUser(null);
-    setAuthStep("login");
+    logout();
     setHabits([]);
     setHistory([]);
   };
 
-  // Authentication screens
   if (!user) {
     return (
       <div className="container">
@@ -203,9 +75,10 @@ export default function App() {
                 <Login
                   onSuccess={(userData) => {
                     setUser(userData);
-                    fetchData();
+                    refreshHabits();
                   }}
                   onSwitchToRegister={() => setAuthStep("register")}
+                  onForgotPassword={() => setAuthStep("forgot-password")}
                 />
               )}
 
@@ -225,8 +98,29 @@ export default function App() {
                   email={tempAuthData.email}
                   onSuccess={(userData) => {
                     setUser(userData);
-                    fetchData();
+                    refreshHabits();
                   }}
+                />
+              )}
+
+              {authStep === "forgot-password" && (
+                <ForgotPassword
+                  onCodeSent={(email) => {
+                    setTempAuthData({ email });
+                    setAuthStep("reset-password");
+                  }}
+                  onBackToLogin={() => setAuthStep("login")}
+                />
+              )}
+
+              {authStep === "reset-password" && tempAuthData && (
+                <ResetPassword
+                  email={tempAuthData.email}
+                  onResetSuccess={(msg) => {
+                    alert(msg);
+                    setAuthStep("login");
+                  }}
+                  onBackToLogin={() => setAuthStep("login")}
                 />
               )}
             </div>
@@ -236,57 +130,61 @@ export default function App() {
     );
   }
 
-  // Main app
   return (
-    <div className="container">
-      <div className="card">
+    <>
+      <div className="habit-app-root">
         <div className="app-container">
           <div className="inner-container">
-            {/* Header */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <h1 className="app-title" style={{ margin: 0 }}>
-                Ha<strong>BITAW</strong>
-              </h1>
-              <button
-                onClick={handleLogout}
-                className="habit-submit"
-                style={{ padding: "0.5rem 1rem", fontSize: "0.8rem" }}
-              >
-                Logout
-              </button>
+            <div className="app-header">
+              <div className="header-top">
+                <div className="user-greeting">
+                  <p className="greeting-text">{greeting}, <strong>{user.username}</strong></p>
+                </div>
+                <button onClick={handleLogout} className="logout-pill">
+                  Logout
+                </button>
+              </div>
+
+              <div className="app-title-container">
+                <h1 className="app-title">
+                  Ha<strong>BITAW</strong>
+                </h1>
+                <p className="app-subtitle">Bitaw Gusto, Disiplina Ayaw?</p>
+              </div>
+
+              <div className="progress-summary-card">
+                <div className="progress-info">
+                  <h3>Today's Progress</h3>
+                  <div className="progress-stats">
+                    <span className="stats-main">{completedCount} / {totalHabits}</span>
+                    <span className="stats-sub">Habits Done</span>
+                  </div>
+                </div>
+                <div className="progress-circle-container">
+                  <svg className="progress-circle" viewBox="0 0 36 36">
+                    <path
+                      className="circle-bg"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                    <path
+                      className="circle"
+                      strokeDasharray={`${progress}, 100`}
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                    <text x="18" y="20.35" className="percentage">{progress}%</text>
+                  </svg>
+                </div>
+              </div>
             </div>
 
-            <p className="app-subtitle">Bitaw Gusto, Disiplina Ayaw?</p>
-
-            {/* Progress Bar */}
-            <p
-              style={{
-                textAlign: "center",
-                margin: "1rem 10px",
-                fontWeight: "bold",
-                color: "white",
-              }}
-            >
-              Progress Today: {progress}% ({completedCount} / {totalHabits})
-            </p>
-
-            {/* Celebration Message */}
             {progress === 100 && habits.length > 0 && (
               <div className="celebration">
                 🎉 Abaaaa nice!, You completed all your habits today! 🎉
               </div>
             )}
 
-            {/* Tab Content */}
             {activeTab === "home" && (
               <>
-                <HabitInput onAdd={addHabit} />
                 <ContributionCalendar history={history} />
 
                 <div
@@ -309,6 +207,22 @@ export default function App() {
               </>
             )}
 
+            {activeTab === "add" && (
+              <div className="add-habit-page">
+                <h2 className="page-title">New Habit</h2>
+                <HabitInput onAdd={(data) => {
+                  addHabit(data);
+                  setActiveTab("home");
+                }} />
+                <button
+                  className="cancel-btn"
+                  onClick={() => setActiveTab("home")}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+
             {activeTab === "goals" && <GoalList habits={habits} />}
             {activeTab === "leaderboard" && <Leaderboard />}
 
@@ -327,6 +241,7 @@ export default function App() {
               >
                 Goals
               </button>
+
               <button
                 className={activeTab === "leaderboard" ? "active" : ""}
                 onClick={() => setActiveTab("leaderboard")}
@@ -334,10 +249,18 @@ export default function App() {
               >
                 Rank
               </button>
+
+              <button
+                className={`nav-add-btn ${activeTab === "add" ? "active" : ""}`}
+                onClick={() => setActiveTab("add")}
+              >
+                <span className="plus-icon">+</span>
+              </button>
+
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

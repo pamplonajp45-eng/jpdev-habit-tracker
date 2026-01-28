@@ -77,33 +77,35 @@ export default function HabitInput({ onAdd }) {
         </select>
 
         {frequencyType === "weekly" && (
-          <div className="day-selector">
-            {weekDays.map((day) => (
-              <button
-                key={day.value}
-                type="button"
-                onClick={() => toggleDay(day.value)}
-                className={`day-button ${selectedDays.includes(day.value) ? "selected" : ""}`}
-                title={day.full}
-              >
-                {day.label}
-              </button>
-            ))}
+          <div className="day-picker-new">
+            <div className="days-row-new">
+              {weekDays.map((day) => (
+                <button
+                  key={day.value}
+                  type="button"
+                  onClick={() => toggleDay(day.value)}
+                  className={`day-pill ${selectedDays.includes(day.value) ? "selected" : ""}`}
+                  title={day.full}
+                >
+                  {day.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
         {frequencyType === "custom" && (
-          <div className="custom-interval">
-            <label>Every</label>
+          <div className="custom-interval-new">
+            <label className="panel-label">Every</label>
             <input
               type="number"
               min="1"
               max="30"
               value={customInterval}
               onChange={(e) => setCustomInterval(parseInt(e.target.value) || 1)}
-              className="interval-input"
+              className="interval-input-new"
             />
-            <label>days</label>
+            <label className="panel-label">days</label>
           </div>
         )}
       </div>
