@@ -8,6 +8,14 @@ const UserSchema = new mongoose.Schema({
         trim: true,
         minlength: 3
     },
+    level: {
+        type: Number,
+        default: 1
+    },
+    xp: {
+        type: Number,
+        default: 0
+    },
     email: {
         type: String,
         required: true,
