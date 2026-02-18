@@ -17,7 +17,7 @@ const HabitSchema = new mongoose.Schema({
         default: 'daily'
     },
     frequencyData: {
-        type: [Number], // For weekly: [0,1,2] (Sun, Mon, Tue); For custom: [interval]
+        type: [Number],
         default: []
     },
     streak: {

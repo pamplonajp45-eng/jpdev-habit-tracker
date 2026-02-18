@@ -1,6 +1,7 @@
 const Habit = require('../models/Habit');
 const HabitHistory = require('../models/HabitHistory');
-const Goal = require('../models/Goal'); // Import Goal model
+const Goal = require('../models/Goal');
+const User = require('..models/User'); // Import Goal model
 
 // @desc    Get all habits
 // @route   GET /api/habits
@@ -138,69 +139,76 @@ exports.toggleHabitCompletion = async (req, res) => {
         const now = new Date();
         const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 
-        // Check availability
         const historyEntry = await HabitHistory.findOne({
             userId,
             habitId,
             date: today
         });
 
-        if (historyEntry) {
-            // Uncheck: Remove history and recalculate streak
-            await HabitHistory.findByIdAndDelete(historyEntry._id);
 
-            // Recalculate streak (expensive but correct)
-            // Or just decrement if we track previous state? 
-            // Let's recalculate streak by counting contiguous previous days
+        if (historyEntry) {
+
+            await HabitHistory.findByIdAndDelete(historyEntry._id);
             const streak = await calculateStreak(userId, habitId);
             habit.streak = streak;
 
-            // Find last completed date
-            // This is complex. If we remove today, last completed might be yesterday.
-            // Simplified:
             const lastHistory = await HabitHistory.findOne({ userId, habitId }).sort({ date: -1 });
             habit.lastCompletedDate = lastHistory ? lastHistory.date : null;
 
             await habit.save();
 
-            // RECALCULATE GOALS (Decrement/Reset logic)
-            // If we uncheck, streak goes down. Total count goes down.
-            // Simplified: Just update based on new habit state.
+
             await updateLinkedGoals(userId, habitId, habit);
 
             return res.json({ message: 'Habit unchecked', habit });
 
-        } else {
-            // Check: Add history and update streak
-            await HabitHistory.create({
-                userId,
-                habitId,
-                date: today,
-                status: 'completed'
-            });
-
-            // Check if completed on the previous due date to continue streak
-            const prevDueDate = getPreviousDueDate(habit, today);
-            const completedPrev = await HabitHistory.findOne({
-                userId,
-                habitId,
-                date: prevDueDate
-            });
-
-            if (completedPrev) {
-                habit.streak += 1;
-            } else {
-                habit.streak = 1; // Start/Reset streak
-            }
-
-            habit.lastCompletedDate = today;
-            await habit.save();
-
-            // UPDATE GOALS
-            await updateLinkedGoals(userId, habitId, habit);
-
-            return res.json({ message: 'Habit checked', habit });
         }
+        // Check: Add history and update streak
+        await HabitHistory.create({
+            userId,
+            habitId,
+            date: today,
+            status: 'completed'
+        });
+
+
+        // Check if completed on the previous due date to continue streak
+        const prevDueDate = getPreviousDueDate(habit, today);
+
+        const completedPrev = await HabitHistory.findOne({
+            userId,
+            habitId,
+            date: prevDueDate
+        });
+
+        if (completedPrev) {
+            habit.streak += 1;
+        } else {
+            habit.streak = 1; // Start/Reset streak
+        }
+
+        habit.lastCompletedDate = today;
+        await habit.save();
+
+        const user = await User.findById(userId);
+        if (user) {
+            const xpGain = user.xpGain = 10;
+            user.xp += xpGain;
+
+            const xpNeeded = user.level * 100;
+            if (user.xp >= xpNeeded) {
+                user.level += 1;
+                user.xp = 0;
+            }
+            await user.save();
+        }
+
+
+        // UPDATE GOALS
+        await updateLinkedGoals(userId, habitId, habit);
+
+        return res.json({ message: 'Habit checked', habit });
+
 
     } catch (error) {
         console.error(error);
