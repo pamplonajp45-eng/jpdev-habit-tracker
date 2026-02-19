@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import api from "../utils/api";
 
-export function useHabits(user) {
+export function useHabits(user, setUser) {
     const [habits, setHabits] = useState([]);
     const [history, setHistory] = useState([]);
     const [togglingIds, setTogglingIds] = useState(new Set());
@@ -63,6 +63,15 @@ export function useHabits(user) {
         }
     }
 
+    async function xpGain(xpGain,) {
+        try {
+            const res = await api.post("/xp", { xpGain });
+            setUser((prev) => ({ ...prev, xp: res.data.xp }));
+        } catch (err) {
+            console.error("Failed to gain XP", err);
+        }
+    }
+
     async function toggleHabit(id) {
         const originalHabits = [...habits];
         const targetHabit = habits.find((h) => h._id === id);
@@ -100,6 +109,10 @@ export function useHabits(user) {
                         : h,
                 ),
             );
+
+            if (res.data.user && setUser) {
+                setUser((prev) => ({ ...prev, ...res.data.user }));
+            }
 
             const heatmapRes = await api.get("/heatmap");
             setHistory(heatmapRes.data);

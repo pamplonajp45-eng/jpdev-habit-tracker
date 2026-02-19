@@ -15,7 +15,13 @@ import { useHabits } from "./hooks/useHabits";
 
 export default function App() {
   const {
-    user, setUser, authStep, setAuthStep, tempAuthData, setTempAuthData, logout
+    user,
+    setUser,
+    authStep,
+    setAuthStep,
+    tempAuthData,
+    setTempAuthData,
+    logout,
   } = useAuth();
 
   const [greeting, setGreeting] = useState("");
@@ -28,8 +34,17 @@ export default function App() {
   }, []);
 
   const {
-    habits, history, togglingIds, addHabit, editHabit, toggleHabit, deleteHabit, refreshHabits, setHabits, setHistory
-  } = useHabits(user);
+    habits,
+    history,
+    togglingIds,
+    addHabit,
+    editHabit,
+    toggleHabit,
+    deleteHabit,
+    refreshHabits,
+    setHabits,
+    setHistory,
+  } = useHabits(user, setUser);
 
   const [progress, setProgress] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
@@ -138,7 +153,9 @@ export default function App() {
             <div className="app-header">
               <div className="header-top">
                 <div className="user-greeting">
-                  <p className="greeting-text">{greeting}, <strong>{user.username}</strong></p>
+                  <p className="greeting-text">
+                    {greeting}, <strong>{user.username}</strong>
+                  </p>
                 </div>
                 <button onClick={handleLogout} className="logout-pill">
                   Logout
@@ -152,11 +169,26 @@ export default function App() {
                 <p className="app-subtitle">Bitaw Gusto, Disiplina Ayaw?</p>
               </div>
 
+              <div className="xp-container">
+                <div className="xp-label">
+                  <span>Level {user.level || 1}</span>
+                  <span>{user.xp || 0} / {(user.level || 1) * 100} XP</span>
+                </div>
+                <div className="xp-bar-container">
+                  <div
+                    className="xp-bar-fill"
+                    style={{ width: `${Math.min(100, ((user.xp || 0) / ((user.level || 1) * 100)) * 100)}%` }}
+                  ></div>
+                </div>
+              </div>
+
               <div className="progress-summary-card">
                 <div className="progress-info">
                   <h3>Today's Progress</h3>
                   <div className="progress-stats">
-                    <span className="stats-main">{completedCount} / {totalHabits}</span>
+                    <span className="stats-main">
+                      {completedCount} / {totalHabits}
+                    </span>
                     <span className="stats-sub">Habits Done</span>
                   </div>
                 </div>
@@ -171,7 +203,9 @@ export default function App() {
                       strokeDasharray={`${progress}, 100`}
                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                     />
-                    <text x="18" y="20.35" className="percentage">{progress}%</text>
+                    <text x="18" y="20.35" className="percentage">
+                      {progress}%
+                    </text>
                   </svg>
                 </div>
               </div>
@@ -210,10 +244,12 @@ export default function App() {
             {activeTab === "add" && (
               <div className="add-habit-page">
                 <h2 className="page-title">New Habit</h2>
-                <HabitInput onAdd={(data) => {
-                  addHabit(data);
-                  setActiveTab("home");
-                }} />
+                <HabitInput
+                  onAdd={(data) => {
+                    addHabit(data);
+                    setActiveTab("home");
+                  }}
+                />
                 <button
                   className="cancel-btn"
                   onClick={() => setActiveTab("home")}
@@ -256,7 +292,6 @@ export default function App() {
               >
                 <span className="plus-icon">+</span>
               </button>
-
             </div>
           </div>
         </div>

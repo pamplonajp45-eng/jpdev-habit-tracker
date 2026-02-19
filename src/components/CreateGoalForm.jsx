@@ -147,7 +147,10 @@ const CreateGoalForm = ({ habits, onGoalCreated, onCancel }) => {
             value={formData.type}
             onChange={handleChange}
             className="habit-textbox"
-            style={selectStyle}
+            style={{
+              ...inputStyle,
+              fontFamily: "inherit"
+            }}
           >
             <option value="streak">Streak (Days in a row)</option>
             <option value="total_count">Total Completion Count</option>

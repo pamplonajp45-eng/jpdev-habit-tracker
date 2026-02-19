@@ -112,7 +112,9 @@ exports.verifyEmail = async (req, res) => {
             user: {
                 id: user._id,
                 username: user.username,
-                email: user.email
+                email: user.email,
+                xp: user.xp,
+                level: user.level
             }
         });
 
@@ -146,6 +148,8 @@ exports.loginUser = async (req, res) => {
                 _id: user.id,
                 username: user.username,
                 email: user.email,
+                xp: user.xp,
+                level: user.level,
                 token: generateToken(user._id),
             });
         } else {

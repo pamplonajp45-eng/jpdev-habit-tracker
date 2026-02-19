@@ -551,6 +551,10 @@ body {
   box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
 }
 
+.habit-textbox::placeholder {
+  color: var(--text-secondary);
+}
+
 .habit-submit {
   background: var(--gradient);
   border: none;
