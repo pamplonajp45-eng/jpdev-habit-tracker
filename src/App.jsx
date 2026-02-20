@@ -12,6 +12,7 @@ import ResetPassword from "./components/Auth/ResetPassword";
 import "./index.css";
 import { useAuth } from "./hooks/useAuth";
 import { useHabits } from "./hooks/useHabits";
+import XPBar from "./components/XPBar";
 
 export default function App() {
   const {
@@ -169,18 +170,12 @@ export default function App() {
                 <p className="app-subtitle">Bitaw Gusto, Disiplina Ayaw?</p>
               </div>
 
-              <div className="xp-container">
-                <div className="xp-label">
-                  <span>Level {user.level || 1}</span>
-                  <span>{user.xp || 0} / {(user.level || 1) * 100} XP</span>
-                </div>
-                <div className="xp-bar-container">
-                  <div
-                    className="xp-bar-fill"
-                    style={{ width: `${Math.min(100, ((user.xp || 0) / ((user.level || 1) * 100)) * 100)}%` }}
-                  ></div>
-                </div>
-              </div>
+              <XPBar
+                currentXP={user.xp || 0}
+                maxXP={(user.level || 1) * 100}
+                level={user.level || 1}
+
+              />
 
               <div className="progress-summary-card">
                 <div className="progress-info">
