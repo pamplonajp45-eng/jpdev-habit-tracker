@@ -2,6 +2,7 @@ const Habit = require("../models/Habit");
 const HabitHistory = require("../models/HabitHistory");
 const Goal = require("../models/Goal");
 const User = require("../models/User"); // Import Goal model
+const { checkStreakBadges } = require("../utils/badges");
 
 exports.getHabits = async (req, res) => {
   try {
@@ -169,7 +170,8 @@ exports.toggleHabitCompletion = async (req, res) => {
       await updateLinkedGoals(userId, habitId, habit);
 
       const user = await User.findById(userId);
-      return res.json({ message: "Habit unchecked", habit, user: { xp: user.xp, level: user.level } });
+      return res.json({ message: "Habit unchecked", habit, user: { xp: user.xp, level: user.level, badges: user.badges } });
+
     }
     // Check: Add history and update streak
     await HabitHistory.create({
@@ -199,6 +201,10 @@ exports.toggleHabitCompletion = async (req, res) => {
 
     const user = await User.findById(userId);
     if (user) {
+      const habits = await Habit.find({ userId });
+      const maxStreak = Math.max(...habits.map(h => h.streak), habit.streak);
+      await checkStreakBadges(user, maxStreak);
+
       const xpGain = (user.xpGain = 10);
       user.xp += xpGain;
 
@@ -210,11 +216,21 @@ exports.toggleHabitCompletion = async (req, res) => {
       await user.save();
     }
 
+
     // UPDATE GOALS
     await updateLinkedGoals(userId, habitId, habit);
 
     const updatedUser = await User.findById(userId);
-    return res.json({ message: "Habit checked", habit, user: { xp: updatedUser.xp, level: updatedUser.level } });
+    return res.json({
+      message: "Habit checked",
+      habit,
+      user: {
+        xp: updatedUser.xp,
+        level: updatedUser.level,
+        badges: updatedUser.badges
+      }
+    });
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
