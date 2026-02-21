@@ -3,6 +3,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const sendEmail = require('../utils/sendEmail');
 const crypto = require('crypto');
+const { syncUserBadges } = require('../utils/badges');
+
 
 // Generate JWT
 const generateToken = (id) => {
@@ -144,13 +146,17 @@ exports.loginUser = async (req, res) => {
 
         // Check password
         if (user && (await bcrypt.compare(password, user.password))) {
+            await syncUserBadges(user); // Retroactively award badges on login
             res.json({
+
                 _id: user.id,
                 username: user.username,
                 email: user.email,
                 xp: user.xp,
                 level: user.level,
+                badges: user.badges,
                 token: generateToken(user._id),
+
             });
         } else {
             res.status(400).json({ message: 'Invalid credentials' });
@@ -238,6 +244,27 @@ exports.resetPassword = async (req, res) => {
         await user.save();
 
         res.status(200).json({ message: 'Password reset successful. Please login with your new password.' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+// @desc    Get current user profile
+// @route   GET /api/auth/me
+// @access  Private
+exports.getMe = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        await syncUserBadges(user); // Retroactively award badges on refresh
+        res.json({
+            _id: user.id,
+            username: user.username,
+            email: user.email,
+            xp: user.xp,
+            level: user.level,
+            badges: user.badges,
+        });
+
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });

@@ -13,6 +13,8 @@ import "./index.css";
 import { useAuth } from "./hooks/useAuth";
 import { useHabits } from "./hooks/useHabits";
 import XPBar from "./components/XPBar";
+import BadgePopup from "./components/BadgePopup";
+import BadgeCollection from "./components/BadgeCollection";
 
 export default function App() {
   const {
@@ -23,7 +25,9 @@ export default function App() {
     tempAuthData,
     setTempAuthData,
     logout,
+    loading,
   } = useAuth();
+
 
   const [greeting, setGreeting] = useState("");
 
@@ -45,6 +49,8 @@ export default function App() {
     refreshHabits,
     setHabits,
     setHistory,
+    newBadge,
+    setNewBadge,
   } = useHabits(user, setUser);
 
   const [progress, setProgress] = useState(0);
@@ -76,7 +82,12 @@ export default function App() {
     setHistory([]);
   };
 
+  if (loading) {
+    return <div className="loading-screen">Loading HaBITAW...</div>;
+  }
+
   if (!user) {
+
     return (
       <div className="container">
         <div className="card">
@@ -256,6 +267,8 @@ export default function App() {
 
             {activeTab === "goals" && <GoalList habits={habits} />}
             {activeTab === "leaderboard" && <Leaderboard />}
+            {activeTab === "badges" && <BadgeCollection user={user} />}
+
 
             <div className="bottom-nav">
               <button
@@ -274,6 +287,13 @@ export default function App() {
               </button>
 
               <button
+                className={`nav-add-btn ${activeTab === "add" ? "active" : ""}`}
+                onClick={() => setActiveTab("add")}
+              >
+                <span className="plus-icon">+</span>
+              </button>
+
+              <button
                 className={activeTab === "leaderboard" ? "active" : ""}
                 onClick={() => setActiveTab("leaderboard")}
                 data-icon="🏆"
@@ -282,15 +302,20 @@ export default function App() {
               </button>
 
               <button
-                className={`nav-add-btn ${activeTab === "add" ? "active" : ""}`}
-                onClick={() => setActiveTab("add")}
+                className={activeTab === "badges" ? "active" : ""}
+                onClick={() => setActiveTab("badges")}
+                data-icon="🏅"
               >
-                <span className="plus-icon">+</span>
+                Achievements
               </button>
+
             </div>
           </div>
         </div>
       </div>
+      {newBadge && (
+        <BadgePopup badge={newBadge} onClose={() => setNewBadge(null)} />
+      )}
     </>
   );
 }

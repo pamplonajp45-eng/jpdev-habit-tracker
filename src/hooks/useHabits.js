@@ -6,6 +6,9 @@ export function useHabits(user, setUser) {
     const [history, setHistory] = useState([]);
     const [togglingIds, setTogglingIds] = useState(new Set());
 
+    const [newBadge, setNewBadge] = useState(null);
+
+
     const fetchData = async () => {
         if (!user) return;
         try {
@@ -111,8 +114,20 @@ export function useHabits(user, setUser) {
             );
 
             if (res.data.user && setUser) {
+                const prevBadges = user?.badges || [];
+                const nextBadges = res.data.user.badges || [];
+
+                // find badge IDs that are new
+                const prevIds = new Set(prevBadges.map(b => b.id));
+                const earned = nextBadges.find(b => !prevIds.has(b.id));
+
+                if (earned) {
+                    setNewBadge(earned); // ✅ triggers the popup
+                }
+
                 setUser((prev) => ({ ...prev, ...res.data.user }));
             }
+
 
             const heatmapRes = await api.get("/heatmap");
             setHistory(heatmapRes.data);
@@ -153,6 +168,8 @@ export function useHabits(user, setUser) {
         deleteHabit,
         refreshHabits: fetchData,
         setHabits,
-        setHistory
+        setHistory,
+        newBadge,
+        setNewBadge,
     };
 }
