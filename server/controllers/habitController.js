@@ -2,6 +2,7 @@ const Habit = require("../models/Habit");
 const HabitHistory = require("../models/HabitHistory");
 const Goal = require("../models/Goal");
 const User = require("../models/User"); // Import Goal model
+const { checkStreakBadges } = require("../utils/badges");
 
 exports.getHabits = async (req, res) => {
   try {
@@ -197,6 +198,9 @@ exports.toggleHabitCompletion = async (req, res) => {
     habit.lastCompletedDate = today;
     await habit.save();
 
+    // Cheack streak badges
+    await checkStreakBadges(user, habit.streak);
+
     const user = await User.findById(userId);
     if (user) {
       const xpGain = (user.xpGain = 10);
@@ -214,7 +218,7 @@ exports.toggleHabitCompletion = async (req, res) => {
     await updateLinkedGoals(userId, habitId, habit);
 
     const updatedUser = await User.findById(userId);
-    return res.json({ message: "Habit checked", habit, user: { xp: updatedUser.xp, level: updatedUser.level } });
+    return res.json({ message: "Habit checked", habit, user: { xp: updatedUser.xp, level: updatedUser.level, badges: updatedUser.badges } });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });

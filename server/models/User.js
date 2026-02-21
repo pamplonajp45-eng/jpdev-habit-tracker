@@ -8,6 +8,11 @@ const UserSchema = new mongoose.Schema({
         trim: true,
         minlength: 3
     },
+
+    badges: {
+        id: { type: String },
+        earnedAt: { type: Date, default: Date.now }
+    },
     level: {
         type: Number,
         default: 1
