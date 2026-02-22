@@ -18,7 +18,8 @@ const io = new Server(server, {
     cors: {
         origin: "*", // Adjust this in production
         methods: ["GET", "POST"]
-    }
+    },
+    transports: ['websocket', 'polling'] // Ensure compatibility
 });
 
 // Socket.io logic
