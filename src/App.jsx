@@ -15,6 +15,7 @@ import { useHabits } from "./hooks/useHabits";
 import XPBar from "./components/XPBar";
 import BadgePopup from "./components/BadgePopup";
 import BadgeCollection from "./components/BadgeCollection";
+import ChatSystem from "./components/ChatSystem";
 
 export default function App() {
   const {
@@ -57,6 +58,7 @@ export default function App() {
   const [completedCount, setCompletedCount] = useState(0);
   const [totalHabits, setTotalHabits] = useState(0);
   const [activeTab, setActiveTab] = useState("home");
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Recalculate progress when habits change
   useEffect(() => {
@@ -169,9 +171,23 @@ export default function App() {
                     {greeting}, <strong>{user.username}</strong>
                   </p>
                 </div>
-                <button onClick={handleLogout} className="logout-pill">
-                  Logout
-                </button>
+                <div className="header-actions" style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={() => setIsChatOpen(true)} className="chat-toggle-btn" style={{
+                    background: 'rgba(99,102,241,0.15)',
+                    color: '#818cf8',
+                    border: '1px solid rgba(99,102,241,0.3)',
+                    borderRadius: '20px',
+                    padding: '4px 12px',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}>
+                    💬 Chat
+                  </button>
+                  <button onClick={handleLogout} className="logout-pill">
+                    Logout
+                  </button>
+                </div>
               </div>
 
               <div className="app-title-container">
@@ -316,6 +332,11 @@ export default function App() {
       {newBadge && (
         <BadgePopup badge={newBadge} onClose={() => setNewBadge(null)} />
       )}
+      <ChatSystem
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        currentUser={user}
+      />
     </>
   );
 }

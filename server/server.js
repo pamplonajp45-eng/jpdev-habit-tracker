@@ -10,6 +10,33 @@ const path = require('path');
 dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
+const http = require('http');
+const server = http.createServer(app);
+const { Server } = require('socket.io');
+
+const io = new Server(server, {
+    cors: {
+        origin: "*", // Adjust this in production
+        methods: ["GET", "POST"]
+    }
+});
+
+// Socket.io logic
+io.on('connection', (socket) => {
+    console.log('a user connected:', socket.id);
+
+    socket.on('join', (userId) => {
+        socket.join(userId);
+        console.log(`User ${userId} joined room`);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('user disconnected');
+    });
+});
+
+// Export io to use in controllers
+app.set('io', io);
 
 // Middleware
 app.use(express.json());
@@ -38,6 +65,9 @@ app.use('/api/habits', require('./routes/habitRoutes'));
 app.use('/api/heatmap', require('./routes/heatmapRoutes'));
 app.use('/api/leaderboard', require('./routes/leaderboardRoutes'));
 app.use('/api/goals', require('./routes/goalRoutes'));
+app.use('/api/friends', require('./routes/friendRoutes'));
+app.use('/api/chat', require('./routes/chatRoutes'));
+app.use('/api/users', require('./routes/userRoutes'));
 
 // Root Route
 app.get('/', (req, res) => {
@@ -49,7 +79,7 @@ const PORT = process.env.PORT || 5000;
 // Start Server if run directly
 if (require.main === module) {
     connectDB().then(() => {
-        app.listen(PORT, () => {
+        server.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
         });
     });
