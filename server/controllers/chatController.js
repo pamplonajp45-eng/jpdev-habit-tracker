@@ -1,5 +1,6 @@
 const Message = require('../models/Message');
 const User = require('../models/User');
+const { encrypt, decrypt } = require('../utils/encryption');
 
 // @desc    Send a message
 // @route   POST /api/chat/send
@@ -14,22 +15,28 @@ const sendMessage = async (req, res) => {
             return res.status(403).json({ message: 'You can only message friends' });
         }
 
+        // ENCRYPT before saving
+        const encryptedText = encrypt(text);
+
         const message = await Message.create({
             sender: req.user._id,
             recipient: recipientId,
-            text
+            text: encryptedText
         });
 
-        // Emit real-time message via Socket.io
+        // Emit real-time message via Socket.io (DECRYPTED for the recipient)
         const io = req.app.get('io');
         io.to(recipientId).emit('newMessage', {
             id: message._id,
             sender: message.sender,
-            text: message.text,
+            text: text, // Send original text to socket for instant delivery
             time: new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
         });
 
-        res.status(201).json(message);
+        res.status(201).json({
+            ...message._doc,
+            text: text // Return decrypted to sender
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
@@ -48,7 +55,14 @@ const getChatHistory = async (req, res) => {
             ]
         }).sort({ createdAt: 1 });
 
-        res.json(messages);
+        // DECRYPT each message
+        const decryptedMessages = messages.map(m => ({
+            ...m._doc,
+            text: decrypt(m.text),
+            time: new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        }));
+
+        res.json(decryptedMessages);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
