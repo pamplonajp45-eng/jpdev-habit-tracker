@@ -4,7 +4,6 @@ const algorithm = 'aes-256-cbc';
 const key = Buffer.from(process.env.ENCRYPTION_KEY || '00000000000000000000000000000000', 'utf8');
 
 const encrypt = (text) => {
-    if (!process.env.ENCRYPTION_KEY) return text; // Passthrough if key not set
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(algorithm, key, iv);
     let encrypted = cipher.update(text, 'utf8', 'hex');
@@ -13,7 +12,7 @@ const encrypt = (text) => {
 };
 
 const decrypt = (text) => {
-    if (!process.env.ENCRYPTION_KEY || !text.includes(':')) return text;
+    if (!text || !text.includes(':')) return text;
     try {
         const [ivHex, encryptedText] = text.split(':');
         const iv = Buffer.from(ivHex, 'hex');
