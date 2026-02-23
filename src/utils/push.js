@@ -25,7 +25,7 @@ export const registerPush = async () => {
     }
 
     try {
-        const registration = await navigator.serviceWorker.register('/notification-sw.js');
+        const registration = await navigator.serviceWorker.register('/sw.js');
         console.log('Service Worker registered:', registration);
 
         const permission = await Notification.requestPermission();

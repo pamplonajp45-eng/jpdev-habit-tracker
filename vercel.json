@@ -9,11 +9,5 @@
             "source": "/socket.io/(.*)",
             "destination": "/api/index.js"
         }
-    ],
-    "crons": [
-        {
-            "path": "/api/notifications/remind-habits",
-            "schedule": "0 1 * * *"
-        }
     ]
 }

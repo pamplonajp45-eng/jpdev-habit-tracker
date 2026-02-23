@@ -46,19 +46,19 @@ export function useHabits(user, setUser) {
     async function addHabit(habitData) {
         try {
             const res = await api.post("/habits", habitData);
-            setHabits((prev) => [{ ...res.data, completedToday: false, isDueToday: true }, ...prev]);
+            setHabits((prev) => [{ ...res.data, completedToday: false }, ...prev]);
             playSound("add");
         } catch (err) {
             console.error("Failed to add habit", err);
         }
     }
 
-    async function editHabit(id, updates) {
+    async function editHabit(id, newName) {
         try {
-            const res = await api.put(`/habits/${id}`, updates);
+            const res = await api.put(`/habits/${id}`, { name: newName });
             setHabits((prev) =>
                 prev.map((habit) =>
-                    habit._id === id ? { ...habit, ...res.data } : habit,
+                    habit._id === id ? { ...habit, name: res.data.name } : habit,
                 ),
             );
         } catch (err) {

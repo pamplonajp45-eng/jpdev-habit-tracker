@@ -71,10 +71,6 @@ const UserSchema = new mongoose.Schema({
     lastSeen: {
         type: Date,
         default: Date.now
-    },
-    timezone: {
-        type: String,
-        default: 'UTC'
     }
 });
 

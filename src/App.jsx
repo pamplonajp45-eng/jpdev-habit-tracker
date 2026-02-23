@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import api from "./utils/api";
 import HabitInput from "./components/HabitInput";
 import HabitList from "./components/HabitList";
 import ContributionCalendar from "./components/ContributionCalendar";
@@ -67,17 +66,6 @@ export default function App() {
   useEffect(() => {
     if (user) {
       registerPush();
-      // Sync timezone
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      if (user.timezone !== tz) {
-        api.put('/users/profile', { timezone: tz })
-          .then(res => {
-            console.log('[Timezone] Synced successfully:', tz);
-            // Update local user state if needed
-            setUser(prev => ({ ...prev, timezone: tz }));
-          })
-          .catch(err => console.error('[Timezone] Sync failed:', err));
-      }
     }
   }, [user]);
 

@@ -52,26 +52,6 @@ const searchUsers = async (req, res) => {
     }
 };
 
-// @desc    Update user profile
-// @route   PUT /api/users/profile
-// @access  Private
-const updateProfile = async (req, res) => {
-    try {
-        const { timezone } = req.body;
-        const user = await User.findByIdAndUpdate(
-            req.user._id,
-            { timezone },
-            { new: true }
-        ).select('-password');
-
-        res.json(user);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
-    }
-};
-
 module.exports = {
-    searchUsers,
-    updateProfile
+    searchUsers
 };

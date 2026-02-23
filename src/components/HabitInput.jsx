@@ -5,7 +5,6 @@ export default function HabitInput({ onAdd }) {
   const [frequencyType, setFrequencyType] = useState("daily");
   const [selectedDays, setSelectedDays] = useState([]);
   const [customInterval, setCustomInterval] = useState(1);
-  const [reminderTime, setReminderTime] = useState("09:00");
 
   const weekDays = [
     { label: "S", value: 0, full: "Sun" },
@@ -36,7 +35,6 @@ export default function HabitInput({ onAdd }) {
           : frequencyType === "custom"
             ? [customInterval]
             : [],
-      reminderTime: reminderTime
     };
 
     onAdd(habitData);
@@ -46,7 +44,6 @@ export default function HabitInput({ onAdd }) {
     setFrequencyType("daily");
     setSelectedDays([]);
     setCustomInterval(1);
-    setReminderTime("09:00");
   }
 
   function toggleDay(dayValue) {
@@ -78,16 +75,6 @@ export default function HabitInput({ onAdd }) {
           <option value="weekly">Specific days of week</option>
           <option value="custom">Every X days</option>
         </select>
-
-        <div className="reminder-selector">
-          <label>Remind me at:</label>
-          <input
-            type="time"
-            value={reminderTime}
-            onChange={(e) => setReminderTime(e.target.value)}
-            className="reminder-time-input"
-          />
-        </div>
 
         {frequencyType === "weekly" && (
           <div className="day-picker-new">
