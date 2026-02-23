@@ -63,7 +63,19 @@ const UserSchema = new mongoose.Schema({
     friends: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
-    }]
+    }],
+    isOnline: {
+        type: Boolean,
+        default: false
+    },
+    lastSeen: {
+        type: Date,
+        default: Date.now
+    },
+    timezone: {
+        type: String,
+        default: 'UTC'
+    }
 });
 
 module.exports = mongoose.model('User', UserSchema);

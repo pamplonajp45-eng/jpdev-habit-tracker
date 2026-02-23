@@ -3,6 +3,7 @@ const HabitHistory = require("../models/HabitHistory");
 const Goal = require("../models/Goal");
 const User = require("../models/User"); // Import Goal model
 const { checkStreakBadges } = require("../utils/badges");
+const { isHabitDue, getPreviousDueDate } = require("../utils/habitUtils");
 
 exports.getHabits = async (req, res) => {
   try {
@@ -65,13 +66,14 @@ exports.getHabits = async (req, res) => {
 // @access  Private
 exports.createHabit = async (req, res) => {
   try {
-    const { name, frequencyType, frequencyData } = req.body;
+    const { name, frequencyType, frequencyData, reminderTime } = req.body;
 
     const habit = await Habit.create({
       userId: req.user.id,
       name,
       frequencyType,
       frequencyData,
+      reminderTime
     });
 
     res.status(201).json(habit);
@@ -344,63 +346,4 @@ const addXpToUser = async (userId, amount) => {
   }
 };
 
-// Helper: Get previous due date for a habit
-const getPreviousDueDate = (habit, today) => {
-  const prev = new Date(today);
 
-  if (habit.frequencyType === "daily") {
-    prev.setDate(prev.getDate() - 1);
-    return prev;
-  }
-
-  if (habit.frequencyType === "weekly") {
-    // Look back day by day until we find a match in frequencyData
-    const scheduledDays = new Set(habit.frequencyData);
-    for (let i = 1; i <= 7; i++) {
-      const checkDate = new Date(today);
-      checkDate.setDate(checkDate.getDate() - i);
-      if (scheduledDays.has(checkDate.getDay())) {
-        return checkDate;
-      }
-    }
-    // Fallback to 7 days ago if none found (shouldn't happen with valid data)
-    prev.setDate(prev.getDate() - 7);
-    return prev;
-  }
-
-  if (habit.frequencyType === "custom") {
-    const interval = habit.frequencyData[0] || 1;
-    prev.setDate(prev.getDate() - interval);
-    return prev;
-  }
-
-  return prev;
-};
-
-// Helper: Check if habit is due today
-const isHabitDue = (habit, date) => {
-  if (habit.frequencyType === "daily") return true;
-
-  if (habit.frequencyType === "weekly") {
-    return habit.frequencyData.includes(date.getDay());
-  }
-
-  if (habit.frequencyType === "custom") {
-    const interval = habit.frequencyData[0] || 1;
-    const start = new Date(habit.createdAt);
-    const startUTC = Date.UTC(
-      start.getFullYear(),
-      start.getMonth(),
-      start.getDate(),
-    );
-    const dateUTC = Date.UTC(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate(),
-    );
-    const diffDays = Math.floor((dateUTC - startUTC) / (1000 * 60 * 60 * 24));
-    return diffDays % interval === 0;
-  }
-
-  return true;
-};

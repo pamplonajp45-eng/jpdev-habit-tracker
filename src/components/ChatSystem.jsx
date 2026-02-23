@@ -87,6 +87,16 @@ export default function ChatSystem({ isOpen, onClose, currentUser, onUnreadChang
                 }
             });
 
+            socketRef.current.on("userStatusChange", ({ userId, isOnline }) => {
+                console.log(`Status change for ${userId}: ${isOnline ? 'online' : 'offline'}`);
+                setFriends(prev => prev.map(f =>
+                    f._id === userId ? { ...f, isOnline, status: isOnline ? 'online' : 'offline' } : f
+                ));
+                setSelectedFriend(prev =>
+                    prev?._id === userId ? { ...prev, isOnline, status: isOnline ? 'online' : 'offline' } : prev
+                );
+            });
+
             return () => {
                 if (socketRef.current) {
                     console.log("Disconnecting socket");
@@ -109,6 +119,15 @@ export default function ChatSystem({ isOpen, onClose, currentUser, onUnreadChang
                 ...prev,
                 [selectedFriend._id]: 0
             }));
+
+            // Unlock audio on first interaction
+            const unlockAudio = () => {
+                const audio = new Audio("/add.mp3");
+                audio.volume = 0;
+                audio.play().catch(() => { });
+                window.removeEventListener('click', unlockAudio);
+            };
+            window.addEventListener('click', unlockAudio);
         }
     }, [isOpen, selectedFriend, view]);
 
@@ -134,14 +153,28 @@ export default function ChatSystem({ isOpen, onClose, currentUser, onUnreadChang
             const res = await api.get("/friends");
             setFriends(res.data.map(f => ({
                 ...f,
-                status: f.status || "online",
-                lastSeen: "now",
+                status: f.isOnline ? "online" : "offline",
+                lastSeen: formatLastSeen(f.lastSeen),
                 avatar: f.username.substring(0, 2).toUpperCase(),
                 name: f.username
             })));
         } catch (err) {
             console.error("Failed to fetch friends", err);
         }
+    };
+
+    const formatLastSeen = (date) => {
+        if (!date) return "Long ago";
+        const now = new Date();
+        const past = new Date(date);
+        const diffMs = now - past;
+        const diffMins = Math.floor(diffMs / 60000);
+
+        if (diffMins < 1) return "Just now";
+        if (diffMins < 60) return `${diffMins}m ago`;
+        const diffHours = Math.floor(diffMins / 60);
+        if (diffHours < 24) return `${diffHours}h ago`;
+        return past.toLocaleDateString();
     };
 
     const fetchPendingRequests = async () => {
@@ -361,19 +394,23 @@ export default function ChatSystem({ isOpen, onClose, currentUser, onUnreadChang
                                                     style={{
                                                         ...styles.friendItem,
                                                         ...(isActive ? styles.friendItemActive : {}),
-                                                        ...(unread > 0 && !isActive ? { background: "rgba(99,102,241,0.05)" } : {})
+                                                        ...(unread > 0 && !isActive ? { background: "rgba(99,102,241,0.08)" } : {})
                                                     }}
                                                     onClick={() => setSelectedFriend(f)}
                                                     className="friend-item"
                                                 >
                                                     <div style={styles.avatarWrap}>
                                                         <div style={{ ...styles.avatar, background: avatarBg(f.name) }}>{f.avatar}</div>
-                                                        <div style={{ ...styles.statusDot, background: statusColor[f.status] }} />
+                                                        <div style={{
+                                                            ...styles.statusDot,
+                                                            background: f.isOnline ? "#22d3a5" : "#64748b",
+                                                            boxShadow: f.isOnline ? "0 0 8px rgba(34,211,165,0.4)" : "none"
+                                                        }} />
                                                     </div>
                                                     <div style={styles.friendInfo}>
-                                                        <div style={{ ...styles.friendName, fontWeight: unread > 0 ? 800 : 700 }}>
+                                                        <div style={{ ...styles.friendName, fontWeight: unread > 0 ? 800 : 600 }}>
                                                             {f.name}
-                                                            {unread > 0 && <span style={styles.unreadDot} />}
+                                                            {unread > 0 && <span style={styles.unreadPulse} />}
                                                         </div>
                                                         <div style={{ ...styles.lastMsg, color: unread > 0 ? "#818cf8" : "#64748b", fontWeight: unread > 0 ? 600 : 400 }}>
                                                             {lastMsg ? (lastMsg.sender === currentUser._id ? "You: " : "") + lastMsg.text : "Start a conversation"}
@@ -381,7 +418,7 @@ export default function ChatSystem({ isOpen, onClose, currentUser, onUnreadChang
                                                     </div>
                                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                                                         {lastMsg && <div style={styles.msgTime}>{lastMsg.time}</div>}
-                                                        {unread > 0 && <div style={styles.miniBadge}>{unread}</div>}
+                                                        {unread > 0 && <div style={styles.unreadBadge}>NEW</div>}
                                                     </div>
                                                 </div>
                                             );
@@ -458,11 +495,21 @@ export default function ChatSystem({ isOpen, onClose, currentUser, onUnreadChang
                                         <div style={{ ...styles.avatar, background: avatarBg(selectedFriend.name), width: 42, height: 42, fontSize: 15 }}>
                                             {selectedFriend.avatar}
                                         </div>
-                                        <div style={{ ...styles.statusDot, background: statusColor[selectedFriend.status], width: 12, height: 12 }} />
+                                        <div style={{
+                                            ...styles.statusDot,
+                                            background: selectedFriend.isOnline ? "#22d3a5" : "#64748b",
+                                            width: 12,
+                                            height: 12
+                                        }} />
                                     </div>
                                     <div style={{ flex: 1 }}>
                                         <div style={styles.chatHeaderName}>{selectedFriend.name}</div>
-                                        <div style={styles.chatHeaderStatus}>{typing ? "typing..." : selectedFriend.status}</div>
+                                        <div style={{
+                                            ...styles.chatHeaderStatus,
+                                            color: selectedFriend.isOnline ? "#22d3a5" : "#64748b"
+                                        }}>
+                                            {selectedFriend.isOnline ? "● Online" : `Last seen ${selectedFriend.lastSeen}`}
+                                        </div>
                                     </div>
                                     {!isMobile && (
                                         <div style={styles.chatActions}>
@@ -870,6 +917,27 @@ const styles = {
     reqActions: { display: "flex", gap: 8, marginLeft: "auto" },
     acceptBtn: { width: 34, height: 34, borderRadius: "50%", background: "rgba(34,211,165,0.15)", color: "#22d3a5", border: "1px solid rgba(34,211,165,0.3)", cursor: "pointer" },
     rejectBtn: { width: 34, height: 34, borderRadius: "50%", background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.25)", cursor: "pointer" },
+    unreadBadge: {
+        background: "linear-gradient(135deg, #6366f1, #818cf8)",
+        color: "#fff",
+        borderRadius: 4,
+        fontSize: 10,
+        padding: "2px 6px",
+        fontWeight: 800,
+        boxShadow: "0 2px 8px rgba(99,102,241,0.4)",
+        letterSpacing: "0.5px"
+    },
+    unreadPulse: {
+        display: "inline-block",
+        width: 8,
+        height: 8,
+        background: "#6366f1",
+        borderRadius: "50%",
+        marginLeft: 8,
+        boxShadow: "0 0 0 rgba(99,102,241, 0.4)",
+        animation: "pulse 2s infinite",
+        verticalAlign: "middle"
+    }
 };
 
 const css = `
@@ -884,6 +952,12 @@ const css = `
   @keyframes slideDown {
     from { transform: translate(-50%, -20px); opacity: 0; }
     to { transform: translate(-50%, 0); opacity: 1; }
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(0.95); boxShadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
+    70% { transform: scale(1); boxShadow: 0 0 0 6px rgba(99, 102, 241, 0); }
+    100% { transform: scale(0.95); boxShadow: 0 0 0 0 rgba(99, 102, 241, 0); }
   }
 
   @media (max-width: 768px) {

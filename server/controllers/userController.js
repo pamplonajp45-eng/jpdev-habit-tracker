@@ -14,7 +14,7 @@ const searchUsers = async (req, res) => {
         const users = await User.find({
             username: { $regex: query, $options: 'i' },
             _id: { $ne: req.user._id }
-        }).select('username level xp friends');
+        }).select('username level xp friends isOnline lastSeen');
 
         // Enhance results with friendship status
         const enhancedUsers = await Promise.all(users.map(async (user) => {
@@ -38,6 +38,8 @@ const searchUsers = async (req, res) => {
                 username: user.username,
                 level: user.level,
                 xp: user.xp,
+                isOnline: user.isOnline,
+                lastSeen: user.lastSeen,
                 isFriend,
                 requestStatus
             };
@@ -50,6 +52,26 @@ const searchUsers = async (req, res) => {
     }
 };
 
+// @desc    Update user profile
+// @route   PUT /api/users/profile
+// @access  Private
+const updateProfile = async (req, res) => {
+    try {
+        const { timezone } = req.body;
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            { timezone },
+            { new: true }
+        ).select('-password');
+
+        res.json(user);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
 module.exports = {
-    searchUsers
+    searchUsers,
+    updateProfile
 };

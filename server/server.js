@@ -36,13 +36,33 @@ app.all(/^\/socket\.io(\/.*)?$/, (req, res) => {
 io.on('connection', (socket) => {
     console.log('a user connected:', socket.id);
 
-    socket.on('join', (userId) => {
+    socket.on('join', async (userId) => {
         socket.join(userId);
+        socket.userId = userId; // Store for disconnect
         console.log(`User ${userId} joined room`);
+
+        try {
+            const User = require('./models/User');
+            await User.findByIdAndUpdate(userId, { isOnline: true, lastSeen: Date.now() });
+            // Broadcast to all that this user is online
+            io.emit('userStatusChange', { userId, isOnline: true });
+        } catch (err) {
+            console.error('Error updating status on join:', err);
+        }
     });
 
-    socket.on('disconnect', () => {
-        console.log('user disconnected');
+    socket.on('disconnect', async () => {
+        console.log('user disconnected:', socket.userId);
+        if (socket.userId) {
+            try {
+                const User = require('./models/User');
+                await User.findByIdAndUpdate(socket.userId, { isOnline: false, lastSeen: Date.now() });
+                // Broadcast to all that this user is offline
+                io.emit('userStatusChange', { userId: socket.userId, isOnline: false });
+            } catch (err) {
+                console.error('Error updating status on disconnect:', err);
+            }
+        }
     });
 });
 

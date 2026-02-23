@@ -53,12 +53,12 @@ export function useHabits(user, setUser) {
         }
     }
 
-    async function editHabit(id, newName) {
+    async function editHabit(id, updates) {
         try {
-            const res = await api.put(`/habits/${id}`, { name: newName });
+            const res = await api.put(`/habits/${id}`, updates);
             setHabits((prev) =>
                 prev.map((habit) =>
-                    habit._id === id ? { ...habit, name: res.data.name } : habit,
+                    habit._id === id ? { ...habit, ...res.data } : habit,
                 ),
             );
         } catch (err) {

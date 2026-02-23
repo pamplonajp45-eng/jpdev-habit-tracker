@@ -112,7 +112,7 @@ const rejectFriendRequest = async (req, res) => {
 // @access  Private
 const getFriends = async (req, res) => {
     try {
-        const user = await User.findById(req.user._id).populate('friends', 'username level xp');
+        const user = await User.findById(req.user._id).populate('friends', 'username level xp isOnline lastSeen');
         res.json(user.friends);
     } catch (error) {
         console.error(error);

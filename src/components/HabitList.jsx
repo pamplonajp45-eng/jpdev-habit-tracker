@@ -41,13 +41,16 @@ export default function HabitList({ habits, onToggle, onDelete, onEdit, toggling
                   </div>
                 </div>
 
-                <p className="habit-card-info">
-                  {habit.isDueToday ? (
-                    <span className="streak-label">Streak: {habit.streak} {habit.streak === 1 ? "Day" : "Days"}</span>
-                  ) : (
-                    <span className="not-due-label">Not scheduled for today</span>
-                  )}
-                </p>
+                <div className="habit-meta-row" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <p className="habit-card-info" style={{ margin: 0 }}>
+                    {habit.isDueToday ? (
+                      <span className="streak-label">Streak: {habit.streak} {habit.streak === 1 ? "Day" : "Days"}</span>
+                    ) : (
+                      <span className="not-due-label">Not scheduled for today</span>
+                    )}
+                  </p>
+                  <EditableReminderTime habit={habit} onEdit={onEdit} />
+                </div>
               </div>
 
               <div className="habit-card-right">
@@ -96,7 +99,9 @@ function EditableHabitName({ habit, onEdit }) {
   const [name, setName] = useState(habit.name);
 
   const handleBlur = () => {
-    onEdit(habit._id, name);
+    if (name !== habit.name) {
+      onEdit(habit._id, { name: name });
+    }
     setIsEditing(false);
   };
 
@@ -125,5 +130,49 @@ function EditableHabitName({ habit, onEdit }) {
     >
       {habit.name}
     </span>
+  );
+}
+
+function EditableReminderTime({ habit, onEdit }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [time, setTime] = useState(habit.reminderTime || "09:00");
+
+  const handleChange = (e) => {
+    const newTime = e.target.value;
+    setTime(newTime);
+    onEdit(habit._id, { reminderTime: newTime });
+    setIsEditing(false);
+  };
+
+  return (
+    <div className="editable-reminder">
+      {isEditing ? (
+        <input
+          type="time"
+          value={time}
+          onChange={handleChange}
+          onBlur={() => setIsEditing(false)}
+          autoFocus
+          className="reminder-edit-input"
+        />
+      ) : (
+        <span
+          className="reminder-badge"
+          onClick={() => setIsEditing(true)}
+          title="Click to change reminder time"
+          style={{
+            fontSize: '0.7rem',
+            background: 'rgba(99,102,241,0.1)',
+            padding: '2px 6px',
+            borderRadius: '4px',
+            color: '#818cf8',
+            cursor: 'pointer',
+            border: '1px solid rgba(99,102,241,0.2)'
+          }}
+        >
+          🔔 {habit.reminderTime || "09:00"}
+        </span>
+      )}
+    </div>
   );
 }

@@ -73,8 +73,91 @@ const sendNotification = async (userId, payload) => {
     }
 };
 
+// @desc    Check and send habit reminders (Triggered by Cron)
+// @route   GET /api/notifications/remind-habits
+// @access  Public (Secret Protected)
+const remindHabits = async (req, res) => {
+    try {
+        const Habit = require('../models/Habit');
+        const User = require('../models/User');
+        const { isHabitDue } = require('../utils/habitUtils');
+        const HabitHistory = require('../models/HabitHistory');
+
+        // Check for secret if provided in environment
+        const cronSecret = process.env.CRON_SECRET;
+        if (cronSecret && req.headers.authorization !== `Bearer ${cronSecret}`) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        const users = await User.find({ timezone: { $exists: true } });
+        let notificationsSent = 0;
+
+        for (const user of users) {
+            // Get user's local time
+            const now = new Date();
+            const localDateStr = now.toLocaleDateString('en-US', { timeZone: user.timezone });
+            const localTimeStr = now.toLocaleTimeString('en-US', {
+                timeZone: user.timezone,
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            // "today" in user's timezone (normalized to midnight UTC for comparison)
+            const localParts = localDateStr.split('/');
+            const userToday = new Date(Date.UTC(localParts[2], localParts[0] - 1, localParts[1]));
+
+            // Find due habits for this user
+            const habits = await Habit.find({ userId: user._id });
+
+            for (const habit of habits) {
+                const isDue = isHabitDue(habit, userToday);
+                if (!isDue) continue;
+
+                // Check if already completed today
+                const completed = await HabitHistory.findOne({
+                    userId: user._id,
+                    habitId: habit._id,
+                    date: userToday
+                });
+                if (completed) continue;
+
+                // Check if already reminded today
+                const lastReminded = habit.lastReminderSentDate ? new Date(habit.lastReminderSentDate) : null;
+                const wasRemindedToday = lastReminded &&
+                    lastReminded.getUTCFullYear() === userToday.getUTCFullYear() &&
+                    lastReminded.getUTCMonth() === userToday.getUTCMonth() &&
+                    lastReminded.getUTCDate() === userToday.getUTCDate();
+
+                if (wasRemindedToday) continue;
+
+                // Check if reminder time has passed
+                if (localTimeStr >= habit.reminderTime) {
+                    await sendNotification(user._id, {
+                        title: 'Habit Reminder! ⚡',
+                        body: `Don't forget to ${habit.name} today!`,
+                        icon: '/HABBITLOGO.png',
+                        tag: `habit-remind-${habit._id}`,
+                        data: { url: '/' }
+                    });
+
+                    habit.lastReminderSentDate = now; // Store real time sent
+                    await habit.save();
+                    notificationsSent++;
+                }
+            }
+        }
+
+        res.json({ message: `Reminders check complete. Sent ${notificationsSent} notifications.` });
+    } catch (error) {
+        console.error('Remind habits error:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
 module.exports = {
     subscribe,
     unsubscribe,
-    sendNotification
+    sendNotification,
+    remindHabits
 };

@@ -66,6 +66,17 @@ export default function App() {
   useEffect(() => {
     if (user) {
       registerPush();
+      // Sync timezone
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (user.timezone !== tz) {
+        api.put('/users/profile', { timezone: tz })
+          .then(res => {
+            console.log('[Timezone] Synced successfully:', tz);
+            // Update local user state if needed
+            setUser(prev => ({ ...prev, timezone: tz }));
+          })
+          .catch(err => console.error('[Timezone] Sync failed:', err));
+      }
     }
   }, [user]);
 
@@ -195,17 +206,19 @@ export default function App() {
                   }}>
                     💬 Chat
                     {totalUnread > 0 && (
-                      <span style={{
+                      <span className="unread-pulse-badge" style={{
                         position: 'absolute',
-                        top: '-8px',
-                        right: '-8px',
+                        top: '-10px',
+                        right: '-10px',
                         background: '#ef4444',
                         color: 'white',
-                        borderRadius: '10px',
-                        padding: '2px 6px',
-                        fontSize: '10px',
-                        boxShadow: '0 0 10px rgba(239, 68, 68, 0.5)',
-                        border: '2px solid #1a1a2e'
+                        borderRadius: '12px',
+                        padding: '2px 8px',
+                        fontSize: '11px',
+                        fontWeight: '900',
+                        boxShadow: '0 0 15px rgba(239, 68, 68, 0.7)',
+                        border: '2.5px solid #1a1a2e',
+                        animation: 'badgePulse 1.5s infinite'
                       }}>
                         {totalUnread}
                       </span>

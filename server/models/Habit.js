@@ -30,6 +30,13 @@ const HabitSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
+    },
+    reminderTime: {
+        type: String,
+        default: '09:00'
+    },
+    lastReminderSentDate: {
+        type: Date
     }
 });
 
