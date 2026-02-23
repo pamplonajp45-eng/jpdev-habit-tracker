@@ -55,15 +55,17 @@ const connectDB = async () => {
         return;
     }
     const uri = process.env.MONGODB_URI;
+    console.log('[DB] Attempting connection. URI present:', !!uri);
+
     if (!uri) {
-        console.error('MONGODB_URI is missing!');
+        console.error('[DB] MONGODB_URI is missing from environment variables!');
         return;
     }
     try {
         await mongoose.connect(uri);
-        console.log('MongoDB Connected...');
+        console.log('[DB] MongoDB Connected successfully');
     } catch (err) {
-        console.error('MongoDB connection error:', err);
+        console.error('[DB] MongoDB connection error:', err);
     }
 };
 

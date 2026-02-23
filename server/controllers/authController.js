@@ -130,13 +130,21 @@ exports.verifyEmail = async (req, res) => {
 // @route   POST /api/auth/login
 // @access  Public
 exports.loginUser = async (req, res) => {
+    console.log('[Auth] Login attempt for email:', req.body?.email);
     try {
         const { email, password } = req.body;
 
+        if (!email || !password) {
+            console.warn('[Auth] Login failed: Missing email or password');
+            return res.status(400).json({ message: 'Email and password are required' });
+        }
+
         // Check for user email
         const user = await User.findOne({ email });
+        console.log('[Auth] User found in DB:', !!user);
 
         if (!user) {
+            console.warn('[Auth] Login failed: User not found');
             return res.status(400).json({ message: 'Invalid credentials' });
         }
 
