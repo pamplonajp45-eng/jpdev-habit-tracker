@@ -27,6 +27,8 @@ const sendMessage = async (req, res) => {
 
         // Emit real-time message via Socket.io (DECRYPTED for the recipient)
         const io = req.app.get('io');
+        console.log(`[Chat] Emitting newMessage from ${req.user._id} to recipient: ${recipientId}`);
+
         io.to(recipientId).emit('newMessage', {
             id: message._id,
             sender: message.sender,
@@ -35,6 +37,7 @@ const sendMessage = async (req, res) => {
         });
 
         // Trigger Push Notification for the recipient
+        console.log(`[Push] Triggering push for recipient: ${recipientId}`);
         sendNotification(recipientId, {
             title: `New message from ${sender.username}`,
             body: text.length > 50 ? text.substring(0, 47) + '...' : text,

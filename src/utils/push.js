@@ -26,9 +26,10 @@ export const registerPush = async () => {
 
     try {
         const registration = await navigator.serviceWorker.register('/sw.js');
-        console.log('Service Worker registered');
+        console.log('Service Worker registered:', registration);
 
         const permission = await Notification.requestPermission();
+        console.log('Notification permission status:', permission);
         if (permission !== 'granted') {
             console.warn('Notification permission denied');
             return;
@@ -44,8 +45,9 @@ export const registerPush = async () => {
         }
 
         // Send subscription to server
-        await api.post('/notifications/subscribe', { subscription });
-        console.log('Push subscription saved to server');
+        console.log('Sending push subscription to server...');
+        const res = await api.post('/notifications/subscribe', { subscription });
+        console.log('Push subscription saved to server:', res.data);
     } catch (error) {
         console.error('Error registering push:', error);
     }

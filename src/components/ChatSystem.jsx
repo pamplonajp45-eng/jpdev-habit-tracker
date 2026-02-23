@@ -23,6 +23,15 @@ export default function ChatSystem({ isOpen, onClose, currentUser, onUnreadChang
     const messagesEndRef = useRef(null);
     const socketRef = useRef(null);
 
+    // Refs to track state for socket listeners without reconnecting
+    const isOpenRef = useRef(isOpen);
+    const selectedFriendRef = useRef(selectedFriend);
+    const viewRef = useRef(view);
+
+    useEffect(() => { isOpenRef.current = isOpen; }, [isOpen]);
+    useEffect(() => { selectedFriendRef.current = selectedFriend; }, [selectedFriend]);
+    useEffect(() => { viewRef.current = view; }, [view]);
+
     const currentMessages = selectedFriend ? (messages[selectedFriend._id] || []) : [];
 
     useEffect(() => {
@@ -33,10 +42,16 @@ export default function ChatSystem({ isOpen, onClose, currentUser, onUnreadChang
 
     useEffect(() => {
         if (currentUser) {
+            console.log("Initializing Socket connection for user:", currentUser._id);
             socketRef.current = io(SOCKET_URL);
-            socketRef.current.emit("join", currentUser._id);
+
+            socketRef.current.on("connect", () => {
+                console.log("Socket connected successfully");
+                socketRef.current.emit("join", currentUser._id);
+            });
 
             socketRef.current.on("newMessage", (msg) => {
+                console.log("New message received via socket:", msg);
                 const friendId = msg.sender === currentUser._id ? msg.recipient : msg.sender;
 
                 setMessages((prev) => ({
@@ -46,7 +61,8 @@ export default function ChatSystem({ isOpen, onClose, currentUser, onUnreadChang
 
                 // Handle unread counts and notifications
                 if (msg.sender !== currentUser._id) {
-                    const isChattingWithSender = isOpen && selectedFriend?._id === friendId && view === "chat";
+                    const isChattingWithSender = isOpenRef.current && selectedFriendRef.current?._id === friendId && viewRef.current === "chat";
+                    console.log("Is currently chatting with sender?", isChattingWithSender);
 
                     if (!isChattingWithSender) {
                         setUnreadCounts(prev => ({
@@ -54,19 +70,31 @@ export default function ChatSystem({ isOpen, onClose, currentUser, onUnreadChang
                             [friendId]: (prev[friendId] || 0) + 1
                         }));
 
+                        // Visual indicator for debugging
+                        if (!isOpenRef.current) {
+                            console.log("Modal closed, triggering sound and badge update");
+                        }
+
                         // Play notification sound
                         const audio = new Audio("/add.mp3");
                         audio.volume = 0.5;
-                        audio.play().catch(() => { });
+                        audio.play().then(() => {
+                            console.log("Notification sound played successfully");
+                        }).catch((err) => {
+                            console.warn("Sound play failed (interaction required?):", err);
+                        });
                     }
                 }
             });
 
             return () => {
-                if (socketRef.current) socketRef.current.disconnect();
+                if (socketRef.current) {
+                    console.log("Disconnecting socket");
+                    socketRef.current.disconnect();
+                }
             };
         }
-    }, [currentUser, isOpen, selectedFriend, view]);
+    }, [currentUser]); // ONLY depend on currentUser to avoid frequent reconnects
 
     // Notify parent about total unread
     useEffect(() => {
