@@ -28,7 +28,7 @@ app.use(express.json());
 app.use(helmet());
 
 // Explicitly handle /socket.io requests for Vercel stability
-app.all('/socket.io/:path*', (req, res) => {
+app.all(/^\/socket\.io(\/.*)?$/, (req, res) => {
     io.engine.handleRequest(req, res);
 });
 
