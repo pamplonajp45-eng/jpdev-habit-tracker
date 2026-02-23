@@ -6,10 +6,10 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      strategies: 'injectManifest',
-      srcDir: 'public',
-      filename: 'sw.js',
       registerType: 'autoUpdate',
+      workbox: {
+        importScripts: ['/notification-sw.js']
+      },
       includeAssets: ['favicon.svg', 'favicon.ico', 'robots.txt', 'HABBITLOGO.png'],
       manifest: {
         name: 'Habit Tracker',
