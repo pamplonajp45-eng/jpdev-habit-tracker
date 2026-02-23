@@ -46,7 +46,7 @@ export function useHabits(user, setUser) {
     async function addHabit(habitData) {
         try {
             const res = await api.post("/habits", habitData);
-            setHabits((prev) => [{ ...res.data, completedToday: false }, ...prev]);
+            setHabits((prev) => [{ ...res.data, completedToday: false, isDueToday: true }, ...prev]);
             playSound("add");
         } catch (err) {
             console.error("Failed to add habit", err);

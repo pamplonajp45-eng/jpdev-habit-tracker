@@ -9,8 +9,8 @@ self.addEventListener('push', function (event) {
             tag: data.tag || 'chat-message',
             data: data.data,
             vibrate: [100, 50, 100],
-            actions: [
-                { action: 'open', title: 'Open Chat' },
+            actions: data.actions || [
+                { action: 'open', title: 'Open' },
                 { action: 'close', title: 'Close' }
             ]
         };

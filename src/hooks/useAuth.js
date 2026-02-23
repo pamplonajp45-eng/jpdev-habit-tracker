@@ -16,12 +16,12 @@ export function useAuth() {
                 try {
                     const res = await api.get("/auth/me");
                     setUser(res.data);
-                    setLoading(false);
-
                 } catch (error) {
                     console.error("Failed to fetch user", error);
                     localStorage.removeItem("token");
                     setUser(null);
+                } finally {
+                    setLoading(false);
                 }
             } else {
                 setLoading(false);

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import api from "./utils/api";
 import HabitInput from "./components/HabitInput";
 import HabitList from "./components/HabitList";
 import ContributionCalendar from "./components/ContributionCalendar";

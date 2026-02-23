@@ -89,19 +89,28 @@ const remindHabits = async (req, res) => {
             return res.status(401).json({ message: 'Unauthorized' });
         }
 
-        const users = await User.find({ timezone: { $exists: true } });
+        // Find ALL users (timezone defaults to 'UTC' if not set)
+        const users = await User.find({});
         let notificationsSent = 0;
+        const log = [];
 
         for (const user of users) {
+            const tz = user.timezone || 'UTC';
+
             // Get user's local time
             const now = new Date();
-            const localDateStr = now.toLocaleDateString('en-US', { timeZone: user.timezone });
-            const localTimeStr = now.toLocaleTimeString('en-US', {
-                timeZone: user.timezone,
+            const localDateStr = now.toLocaleDateString('en-US', { timeZone: tz });
+            let localTimeStr = now.toLocaleTimeString('en-US', {
+                timeZone: tz,
                 hour12: false,
                 hour: '2-digit',
                 minute: '2-digit'
             });
+
+            // Fix edge case: midnight can return "24:00" instead of "00:00"
+            if (localTimeStr.startsWith('24')) {
+                localTimeStr = '00' + localTimeStr.slice(2);
+            }
 
             // "today" in user's timezone (normalized to midnight UTC for comparison)
             const localParts = localDateStr.split('/');
@@ -109,6 +118,7 @@ const remindHabits = async (req, res) => {
 
             // Find due habits for this user
             const habits = await Habit.find({ userId: user._id });
+            log.push({ user: user.username, tz, localTimeStr, habitCount: habits.length });
 
             for (const habit of habits) {
                 const isDue = isHabitDue(habit, userToday);
@@ -131,24 +141,33 @@ const remindHabits = async (req, res) => {
 
                 if (wasRemindedToday) continue;
 
+                const reminderTime = habit.reminderTime || '09:00';
+                console.log(`[Remind] "${habit.name}" | localTime=${localTimeStr} reminderTime=${reminderTime} | willSend=${localTimeStr >= reminderTime}`);
+
                 // Check if reminder time has passed
-                if (localTimeStr >= habit.reminderTime) {
+                if (localTimeStr >= reminderTime) {
                     await sendNotification(user._id, {
                         title: 'Habit Reminder! ⚡',
                         body: `Don't forget to ${habit.name} today!`,
                         icon: '/HABBITLOGO.png',
                         tag: `habit-remind-${habit._id}`,
+                        actions: [
+                            { action: 'open', title: 'Open App' },
+                            { action: 'close', title: 'Dismiss' }
+                        ],
                         data: { url: '/' }
                     });
 
-                    habit.lastReminderSentDate = now; // Store real time sent
+                    habit.lastReminderSentDate = now;
                     await habit.save();
                     notificationsSent++;
+                    console.log(`[Remind] ✅ Sent reminder for "${habit.name}" to ${user.username}`);
                 }
             }
         }
 
-        res.json({ message: `Reminders check complete. Sent ${notificationsSent} notifications.` });
+        console.log('[Remind] Check complete. Sent:', notificationsSent);
+        res.json({ message: `Reminders check complete. Sent ${notificationsSent} notifications.`, log });
     } catch (error) {
         console.error('Remind habits error:', error);
         res.status(500).json({ message: 'Internal server error' });

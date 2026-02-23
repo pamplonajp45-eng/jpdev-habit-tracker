@@ -48,7 +48,7 @@ const CreateGoalForm = ({ habits, onGoalCreated, onCancel }) => {
 
   const labelStyle = {
     fontSize: "0.8rem",
-    color: "#888",
+    color: "var(--text-secondary)",
     marginBottom: "0.3rem",
     display: "block",
     fontWeight: "500",
@@ -61,7 +61,8 @@ const CreateGoalForm = ({ habits, onGoalCreated, onCancel }) => {
 
   const selectStyle = {
     ...inputStyle,
-    color: "black",
+    color: "var(--text-primary)",
+    background: "var(--card-bg)",
   };
 
   const rowStyle = {

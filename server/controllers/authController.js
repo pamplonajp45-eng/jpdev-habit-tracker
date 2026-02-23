@@ -116,7 +116,8 @@ exports.verifyEmail = async (req, res) => {
                 username: user.username,
                 email: user.email,
                 xp: user.xp,
-                level: user.level
+                level: user.level,
+                timezone: user.timezone
             }
         });
 
@@ -163,6 +164,7 @@ exports.loginUser = async (req, res) => {
                 xp: user.xp,
                 level: user.level,
                 badges: user.badges,
+                timezone: user.timezone,
                 token: generateToken(user._id),
 
             });
@@ -271,6 +273,7 @@ exports.getMe = async (req, res) => {
             xp: user.xp,
             level: user.level,
             badges: user.badges,
+            timezone: user.timezone
         });
 
     } catch (error) {
