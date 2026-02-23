@@ -2,11 +2,19 @@ const PushSubscription = require('../models/PushSubscription');
 const webpush = require('web-push');
 
 // Configure web-push
-webpush.setVapidDetails(
-    'mailto:example@yourdomain.com',
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
-);
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    try {
+        webpush.setVapidDetails(
+            'mailto:example@yourdomain.com',
+            process.env.VAPID_PUBLIC_KEY,
+            process.env.VAPID_PRIVATE_KEY
+        );
+    } catch (err) {
+        console.error('Failed to set VAPID details:', err);
+    }
+} else {
+    console.warn('VAPID keys missing. Push notifications will be disabled.');
+}
 
 // @desc    Subscribe to push notifications
 // @route   POST /api/notifications/subscribe
