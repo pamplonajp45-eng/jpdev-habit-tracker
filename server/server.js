@@ -69,6 +69,7 @@ app.use('/api/goals', require('./routes/goalRoutes'));
 app.use('/api/friends', require('./routes/friendRoutes'));
 app.use('/api/chat', require('./routes/chatRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
 
 // Root Route
 app.get('/', (req, res) => {

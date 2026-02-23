@@ -1,6 +1,7 @@
 const Message = require('../models/Message');
 const User = require('../models/User');
 const { encrypt, decrypt } = require('../utils/encryption');
+const { sendNotification } = require('./notificationController');
 
 // @desc    Send a message
 // @route   POST /api/chat/send
@@ -31,6 +32,18 @@ const sendMessage = async (req, res) => {
             sender: message.sender,
             text: text, // Send original text to socket for instant delivery
             time: new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        });
+
+        // Trigger Push Notification for the recipient
+        sendNotification(recipientId, {
+            title: `New message from ${sender.username}`,
+            body: text.length > 50 ? text.substring(0, 47) + '...' : text,
+            icon: '/HABBITLOGO.png',
+            tag: 'chat-message',
+            data: {
+                senderId: sender._id,
+                url: '/chat' // Link to chat view
+            }
         });
 
         res.status(201).json({

@@ -16,6 +16,7 @@ import XPBar from "./components/XPBar";
 import BadgePopup from "./components/BadgePopup";
 import BadgeCollection from "./components/BadgeCollection";
 import ChatSystem from "./components/ChatSystem";
+import { registerPush } from "./utils/push";
 
 export default function App() {
   const {
@@ -59,6 +60,14 @@ export default function App() {
   const [totalHabits, setTotalHabits] = useState(0);
   const [activeTab, setActiveTab] = useState("home");
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [totalUnread, setTotalUnread] = useState(0);
+
+  // Register for push notifications when user logs in
+  useEffect(() => {
+    if (user) {
+      registerPush();
+    }
+  }, [user]);
 
   // Recalculate progress when habits change
   useEffect(() => {
@@ -173,16 +182,34 @@ export default function App() {
                 </div>
                 <div className="header-actions" style={{ display: 'flex', gap: '8px' }}>
                   <button onClick={() => setIsChatOpen(true)} className="chat-toggle-btn" style={{
-                    background: 'rgba(99,102,241,0.15)',
+                    background: totalUnread > 0 ? 'rgba(99,102,241,0.25)' : 'rgba(99,102,241,0.15)',
                     color: '#818cf8',
-                    border: '1px solid rgba(99,102,241,0.3)',
+                    border: totalUnread > 0 ? '2px solid #6366f1' : '1px solid rgba(99,102,241,0.3)',
                     borderRadius: '20px',
                     padding: '4px 12px',
                     fontSize: '12px',
                     fontWeight: 'bold',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    position: 'relative',
+                    transition: 'all 0.3s ease'
                   }}>
                     💬 Chat
+                    {totalUnread > 0 && (
+                      <span style={{
+                        position: 'absolute',
+                        top: '-8px',
+                        right: '-8px',
+                        background: '#ef4444',
+                        color: 'white',
+                        borderRadius: '10px',
+                        padding: '2px 6px',
+                        fontSize: '10px',
+                        boxShadow: '0 0 10px rgba(239, 68, 68, 0.5)',
+                        border: '2px solid #1a1a2e'
+                      }}>
+                        {totalUnread}
+                      </span>
+                    )}
                   </button>
                   <button onClick={handleLogout} className="logout-pill">
                     Logout
@@ -336,6 +363,7 @@ export default function App() {
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
         currentUser={user}
+        onUnreadChange={setTotalUnread}
       />
     </>
   );

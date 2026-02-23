@@ -6,10 +6,11 @@ const statusColor = { online: "#22d3a5", away: "#f59e0b", offline: "#64748b" };
 
 const SOCKET_URL = import.meta.env.PROD ? "/" : "http://localhost:5000";
 
-export default function ChatSystem({ isOpen, onClose, currentUser }) {
+export default function ChatSystem({ isOpen, onClose, currentUser, onUnreadChange }) {
     const [view, setView] = useState("chat"); // chat | friends | requests | explore
     const [selectedFriend, setSelectedFriend] = useState(null);
     const [messages, setMessages] = useState({});
+    const [unreadCounts, setUnreadCounts] = useState({});
     const [input, setInput] = useState("");
     const [pendingRequests, setPendingRequests] = useState([]);
     const [friends, setFriends] = useState([]);
@@ -36,20 +37,52 @@ export default function ChatSystem({ isOpen, onClose, currentUser }) {
             socketRef.current.emit("join", currentUser._id);
 
             socketRef.current.on("newMessage", (msg) => {
-                setMessages((prev) => {
-                    const friendId = msg.sender === currentUser._id ? msg.recipient : msg.sender;
-                    return {
-                        ...prev,
-                        [friendId]: [...(prev[friendId] || []), msg],
-                    };
-                });
+                const friendId = msg.sender === currentUser._id ? msg.recipient : msg.sender;
+
+                setMessages((prev) => ({
+                    ...prev,
+                    [friendId]: [...(prev[friendId] || []), msg],
+                }));
+
+                // Handle unread counts and notifications
+                if (msg.sender !== currentUser._id) {
+                    const isChattingWithSender = isOpen && selectedFriend?._id === friendId && view === "chat";
+
+                    if (!isChattingWithSender) {
+                        setUnreadCounts(prev => ({
+                            ...prev,
+                            [friendId]: (prev[friendId] || 0) + 1
+                        }));
+
+                        // Play notification sound
+                        const audio = new Audio("/add.mp3");
+                        audio.volume = 0.5;
+                        audio.play().catch(() => { });
+                    }
+                }
             });
 
             return () => {
                 if (socketRef.current) socketRef.current.disconnect();
             };
         }
-    }, [currentUser]);
+    }, [currentUser, isOpen, selectedFriend, view]);
+
+    // Notify parent about total unread
+    useEffect(() => {
+        const total = Object.values(unreadCounts).reduce((sum, count) => sum + count, 0);
+        onUnreadChange?.(total);
+    }, [unreadCounts, onUnreadChange]);
+
+    // Clear unread when entering chat with a friend
+    useEffect(() => {
+        if (isOpen && selectedFriend && view === "chat") {
+            setUnreadCounts(prev => ({
+                ...prev,
+                [selectedFriend._id]: 0
+            }));
+        }
+    }, [isOpen, selectedFriend, view]);
 
     useEffect(() => {
         if (isOpen) {
@@ -293,10 +326,15 @@ export default function ChatSystem({ isOpen, onClose, currentUser }) {
                                         filteredFriends.map((f) => {
                                             const lastMsg = getLastMessage(f._id);
                                             const isActive = selectedFriend?._id === f._id;
+                                            const unread = unreadCounts[f._id] || 0;
                                             return (
                                                 <div
                                                     key={f._id}
-                                                    style={{ ...styles.friendItem, ...(isActive ? styles.friendItemActive : {}) }}
+                                                    style={{
+                                                        ...styles.friendItem,
+                                                        ...(isActive ? styles.friendItemActive : {}),
+                                                        ...(unread > 0 && !isActive ? { background: "rgba(99,102,241,0.05)" } : {})
+                                                    }}
                                                     onClick={() => setSelectedFriend(f)}
                                                     className="friend-item"
                                                 >
@@ -305,12 +343,18 @@ export default function ChatSystem({ isOpen, onClose, currentUser }) {
                                                         <div style={{ ...styles.statusDot, background: statusColor[f.status] }} />
                                                     </div>
                                                     <div style={styles.friendInfo}>
-                                                        <div style={styles.friendName}>{f.name}</div>
-                                                        <div style={styles.lastMsg}>
+                                                        <div style={{ ...styles.friendName, fontWeight: unread > 0 ? 800 : 700 }}>
+                                                            {f.name}
+                                                            {unread > 0 && <span style={styles.unreadDot} />}
+                                                        </div>
+                                                        <div style={{ ...styles.lastMsg, color: unread > 0 ? "#818cf8" : "#64748b", fontWeight: unread > 0 ? 600 : 400 }}>
                                                             {lastMsg ? (lastMsg.sender === currentUser._id ? "You: " : "") + lastMsg.text : "Start a conversation"}
                                                         </div>
                                                     </div>
-                                                    {lastMsg && <div style={styles.msgTime}>{lastMsg.time}</div>}
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                                                        {lastMsg && <div style={styles.msgTime}>{lastMsg.time}</div>}
+                                                        {unread > 0 && <div style={styles.miniBadge}>{unread}</div>}
+                                                    </div>
                                                 </div>
                                             );
                                         })
@@ -582,6 +626,23 @@ const styles = {
     },
     navIcon: { fontSize: 20 },
     navLabel: { fontSize: 10, fontWeight: 700 },
+    unreadDot: {
+        display: "inline-block",
+        width: 8,
+        height: 8,
+        background: "#6366f1",
+        borderRadius: "50%",
+        marginLeft: 6,
+        boxShadow: "0 0 8px rgba(99,102,241,0.5)"
+    },
+    miniBadge: {
+        background: "#6366f1",
+        color: "#fff",
+        borderRadius: 10,
+        fontSize: 10,
+        padding: "1px 6px",
+        fontWeight: 800,
+    },
     navBtnActive: {
         background: "rgba(99,102,241,0.15)",
         color: "#818cf8",
