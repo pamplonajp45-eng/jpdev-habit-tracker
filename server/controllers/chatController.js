@@ -36,21 +36,19 @@ const sendMessage = async (req, res) => {
             time: new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
         });
 
-        // Check recipient status before sending push notification
-        const recipient = await User.findById(recipientId);
-        if (recipient && !recipient.isOnline) {
-            console.log(`[Push] Triggering push for offline recipient: ${recipientId}`);
-            sendNotification(recipientId, {
-                title: `New message from ${sender.username}`,
-                body: text.length > 50 ? text.substring(0, 47) + '...' : text,
-                icon: '/HABBITLOGO.png',
-                tag: 'chat-message',
-                data: {
-                    senderId: sender._id,
-                    url: '/chat' // Link to chat view
-                }
-            });
-        }
+        // Always trigger Push Notification. 
+        // If they are online but backgrounded, they still need the Web Push.
+        console.log(`[Push] Triggering push for recipient: ${recipientId}`);
+        sendNotification(recipientId, {
+            title: `New message from ${sender.username}`,
+            body: text.length > 50 ? text.substring(0, 47) + '...' : text,
+            icon: '/HABBITLOGO.png',
+            tag: 'chat-message',
+            data: {
+                senderId: sender._id,
+                url: '/chat' // Link to chat view
+            }
+        });
 
         res.status(201).json({
             ...message._doc,
