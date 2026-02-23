@@ -22,6 +22,11 @@ const io = new Server(server, {
     transports: ['websocket', 'polling'] // Ensure compatibility
 });
 
+// Middleware (CRITICAL: CORS and JSON must be at the top)
+app.use(cors());
+app.use(express.json());
+app.use(helmet());
+
 // Explicitly handle /socket.io requests for Vercel stability
 app.all('/socket.io/*', (req, res) => {
     io.engine.handleRequest(req, res);
@@ -44,23 +49,21 @@ io.on('connection', (socket) => {
 // Export io to use in controllers
 app.set('io', io);
 
-// Middleware
-app.use(express.json());
-app.use(cors());
-app.use(helmet());
-
 // Database Connection
 const connectDB = async () => {
     if (mongoose.connection.readyState >= 1) {
         return;
     }
+    const uri = process.env.MONGODB_URI;
+    if (!uri) {
+        console.error('MONGODB_URI is missing!');
+        return;
+    }
     try {
-        await mongoose.connect(process.env.MONGODB_URI);
+        await mongoose.connect(uri);
         console.log('MongoDB Connected...');
     } catch (err) {
         console.error('MongoDB connection error:', err);
-        // Do not exit process in serverless environment, just log error
-        // process.exit(1); 
     }
 };
 
