@@ -20,6 +20,7 @@ function urlBase64ToUint8Array(base64String) {
 export const registerPush = async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
         console.warn('Push notifications not supported');
+        if (window.innerWidth < 768) alert('Note: Push notifications on iPhone require "Add to Home Screen"');
         return;
     }
 
