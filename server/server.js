@@ -22,6 +22,11 @@ const io = new Server(server, {
     transports: ['websocket', 'polling'] // Ensure compatibility
 });
 
+// Explicitly handle /socket.io requests for Vercel stability
+app.all('/socket.io/*', (req, res) => {
+    io.engine.handleRequest(req, res);
+});
+
 // Socket.io logic
 io.on('connection', (socket) => {
     console.log('a user connected:', socket.id);
