@@ -46,19 +46,27 @@ export function useHabits(user, setUser) {
     async function addHabit(habitData) {
         try {
             const res = await api.post("/habits", habitData);
-            setHabits((prev) => [{ ...res.data, completedToday: false }, ...prev]);
+            const habit = res.data;
+
+            let isDueToday = true;
+            if (habit.frequencyType === "weekly") {
+                isDueToday = habit.frequencyData.includes(new Date().getDay());
+            }
+            // For daily and custom, a newly created habit is due on its creation day.
+
+            setHabits((prev) => [{ ...habit, completedToday: false, isDueToday }, ...prev]);
             playSound("add");
         } catch (err) {
             console.error("Failed to add habit", err);
         }
     }
 
-    async function editHabit(id, newName) {
+    async function editHabit(id, newName, newCategory) {
         try {
-            const res = await api.put(`/habits/${id}`, { name: newName });
+            const res = await api.put(`/habits/${id}`, { name: newName, category: newCategory });
             setHabits((prev) =>
                 prev.map((habit) =>
-                    habit._id === id ? { ...habit, name: res.data.name } : habit,
+                    habit._id === id ? { ...habit, name: res.data.name, category: res.data.category } : habit,
                 ),
             );
         } catch (err) {

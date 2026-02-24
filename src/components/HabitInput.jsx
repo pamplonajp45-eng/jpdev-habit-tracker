@@ -5,6 +5,7 @@ export default function HabitInput({ onAdd }) {
   const [frequencyType, setFrequencyType] = useState("daily");
   const [selectedDays, setSelectedDays] = useState([]);
   const [customInterval, setCustomInterval] = useState(1);
+  const [category, setCategory] = useState("");
 
   const weekDays = [
     { label: "S", value: 0, full: "Sun" },
@@ -35,6 +36,7 @@ export default function HabitInput({ onAdd }) {
           : frequencyType === "custom"
             ? [customInterval]
             : [],
+      category: category,
     };
 
     onAdd(habitData);
@@ -44,6 +46,7 @@ export default function HabitInput({ onAdd }) {
     setFrequencyType("daily");
     setSelectedDays([]);
     setCustomInterval(1);
+    setCategory("");
   }
 
   function toggleDay(dayValue) {
@@ -52,6 +55,10 @@ export default function HabitInput({ onAdd }) {
     } else {
       setSelectedDays([...selectedDays, dayValue].sort());
     }
+  }
+
+  function handleCategoryChange(e) {
+    setCategory(e.target.value);
   }
 
   return (
@@ -109,6 +116,23 @@ export default function HabitInput({ onAdd }) {
           </div>
         )}
       </div>
+      <select
+        value={category}
+        onChange={handleCategoryChange}
+        className="category-dropdown"
+        placeholder="Select a category ">
+
+        <option value="" disabled>Select a category</option>
+        <option value="health">Health</option>
+        <option value="finance">Finance</option>
+        <option value="relationship">Relationship</option>
+        <option value="self-care">Self-care</option>
+        <option value="hobby">Hobby</option>
+        <option value="sports">Sports</option>
+        <option value="work">Work</option>
+        <option value="study">Study</option>
+        <option value="self-improvement">Self-improvement</option>
+      </select>
 
       <button onClick={handleSubmit} className="habit-submit">
         + Add

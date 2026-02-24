@@ -94,30 +94,63 @@ function getFireImages(streak) {
 function EditableHabitName({ habit, onEdit }) {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(habit.name);
+  const [category, setCategory] = useState(habit.category || "");
 
-  const handleBlur = () => {
-    onEdit(habit._id, name);
+  const handleSave = () => {
+    onEdit(habit._id, name, category);
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setName(habit.name);
+    setCategory(habit.category || "");
     setIsEditing(false);
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter") handleBlur();
-    if (e.key === "Escape") {
-      setName(habit.name);
-      setIsEditing(false);
-    }
+    if (e.key === "Enter") handleSave();
+    if (e.key === "Escape") handleCancel();
   };
 
   return isEditing ? (
-    <input
-      type="text"
-      value={name}
-      onChange={(e) => setName(e.target.value)}
-      onBlur={handleBlur}
-      onKeyDown={handleKeyDown}
-      autoFocus
-      className="editing-input"
-    />
+    <div className="inline-edit-container" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', width: '100%' }}>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={handleKeyDown}
+        autoFocus
+        className="editing-input"
+        style={{ flex: 1 }}
+      />
+      <select
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+        className="category-dropdown-inline"
+        style={{
+          background: "rgba(0, 0, 0, 0.2)",
+          border: "1px solid rgba(255, 255, 255, 0.1)",
+          color: "white",
+          padding: "4px 8px",
+          borderRadius: "8px",
+          fontSize: "0.8rem",
+          maxWidth: "100px"
+        }}
+      >
+        <option value="" disabled>Category</option>
+        <option value="health">Health</option>
+        <option value="finance">Finance</option>
+        <option value="relationship">Relationship</option>
+        <option value="self-care">Self-care</option>
+        <option value="hobby">Hobby</option>
+        <option value="sports">Sports</option>
+        <option value="work">Work</option>
+        <option value="study">Study</option>
+        <option value="self-improvement">Self-improvement</option>
+      </select>
+      <button onClick={handleSave} style={{ background: '#6366f1', border: 'none', color: 'white', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Save</button>
+      <button onClick={handleCancel} style={{ background: 'transparent', border: '1px solid #4f46e5', color: '#a0a0b8', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>✕</button>
+    </div>
   ) : (
     <span
       className={`habit-name-text ${habit.completedToday ? "checked" : ""}`}

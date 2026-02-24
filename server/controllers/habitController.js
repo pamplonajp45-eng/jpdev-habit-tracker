@@ -65,13 +65,14 @@ exports.getHabits = async (req, res) => {
 // @access  Private
 exports.createHabit = async (req, res) => {
   try {
-    const { name, frequencyType, frequencyData } = req.body;
+    const { name, frequencyType, frequencyData, category } = req.body;
 
     const habit = await Habit.create({
       userId: req.user.id,
       name,
       frequencyType,
       frequencyData,
+      category,
     });
 
     res.status(201).json(habit);

@@ -727,7 +727,8 @@ body {
   letter-spacing: 0.05em;
 }
 
-.frequency-dropdown {
+.frequency-dropdown,
+.category-dropdown {
   width: 100%;
   background: rgba(0, 0, 0, 0.2);
   border: 1px solid var(--card-border);

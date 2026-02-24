@@ -59,6 +59,7 @@ export default function App() {
   const [completedCount, setCompletedCount] = useState(0);
   const [totalHabits, setTotalHabits] = useState(0);
   const [activeTab, setActiveTab] = useState("home");
+  const [selectedCategory, setSelectedCategory] = useState("All");
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [totalUnread, setTotalUnread] = useState(0);
 
@@ -272,12 +273,35 @@ export default function App() {
               <>
                 <ContributionCalendar history={history} />
 
+                <div className="category-filter-container" style={{ display: "flex", gap: "0.5rem", marginTop: "1.5rem", overflowX: "auto", paddingBottom: "0.5rem" }}>
+                  {["All", ...new Set(habits.map(h => h.category).filter(c => c && c !== "general"))].map(cat => (
+                    <button
+                      key={cat}
+                      className={`category-pill ${selectedCategory === cat ? "active" : ""}`}
+                      onClick={() => setSelectedCategory(cat)}
+                      style={{
+                        padding: "0.4rem 1rem",
+                        borderRadius: "20px",
+                        border: "1px solid rgba(99,102,241,0.3)",
+                        background: selectedCategory === cat ? "#6366f1" : "rgba(30,30,46,0.5)",
+                        color: selectedCategory === cat ? "white" : "#a0a0b8",
+                        cursor: "pointer",
+                        fontSize: "0.85rem",
+                        textTransform: "capitalize",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
                 <div
                   className="habit-list-wrapper"
-                  style={{ marginTop: "1.5rem" }}
+                  style={{ marginTop: "1rem" }}
                 >
                   <HabitList
-                    habits={habits}
+                    habits={selectedCategory === "All" ? habits : habits.filter(h => h.category === selectedCategory)}
                     onToggle={toggleHabit}
                     onDelete={deleteHabit}
                     onEdit={editHabit}
