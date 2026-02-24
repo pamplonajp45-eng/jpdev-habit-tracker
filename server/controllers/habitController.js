@@ -2,7 +2,7 @@ const Habit = require("../models/Habit");
 const HabitHistory = require("../models/HabitHistory");
 const Goal = require("../models/Goal");
 const User = require("../models/User"); // Import Goal model
-const { checkStreakBadges } = require("../utils/badges");
+const { checkStreakBadges, checkLevelBadges } = require("../utils/badges");
 
 exports.getHabits = async (req, res) => {
   try {
@@ -215,6 +215,7 @@ exports.toggleHabitCompletion = async (req, res) => {
         user.level += 1;
         user.xp = 0;
       }
+      await checkLevelBadges(user);
       await user.save();
     }
 
@@ -339,6 +340,7 @@ const addXpToUser = async (userId, amount) => {
       user.xp = user.xp - xpNeeded; // Carry over surplus XP
     }
 
+    await checkLevelBadges(user);
     await user.save();
   } catch (err) {
     console.error("Error adding XP to user:", err);

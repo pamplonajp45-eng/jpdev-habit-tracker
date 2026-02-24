@@ -24,7 +24,30 @@ export function useHabits(user, setUser) {
     };
 
     useEffect(() => {
+        let isMounted = true;
+
         fetchData();
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                fetchData();
+            }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        // Setup a timer to refresh exactly at midnight
+        const now = new Date();
+        const msUntilMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0) - now;
+        const midnightTimeout = setTimeout(() => {
+            if (isMounted) fetchData();
+        }, msUntilMidnight + 1000); // 1 second after midnight
+
+        return () => {
+            isMounted = false;
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+            clearTimeout(midnightTimeout);
+        };
     }, [user]);
 
     const playSound = (type) => {
