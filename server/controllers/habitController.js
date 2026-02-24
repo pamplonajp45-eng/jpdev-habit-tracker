@@ -4,6 +4,15 @@ const Goal = require("../models/Goal");
 const User = require("../models/User"); // Import Goal model
 const { checkStreakBadges, checkLevelBadges } = require("../utils/badges");
 
+// Helper to get local "today" in UTC (Adjusted for Asia/Manila)
+const getLocalTodayUTC = () => {
+  const now = new Date();
+  const phTimeString = now.toLocaleString("en-US", { timeZone: "Asia/Manila" });
+  const localNow = new Date(phTimeString);
+
+  return new Date(Date.UTC(localNow.getFullYear(), localNow.getMonth(), localNow.getDate()));
+};
+
 exports.getHabits = async (req, res) => {
   try {
     const habits = await Habit.find({ userId: req.user.id }).sort({
@@ -11,16 +20,13 @@ exports.getHabits = async (req, res) => {
     });
 
     // Check completion status for today for each habit
-    const now = new Date();
-    const today = new Date(
-      Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
-    );
+    const today = getLocalTodayUTC();
     const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
 
     // Strict Streak Validation: Reset streak if broken (missed yesterday)
     const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
 
     for (const habit of habits) {
       if (habit.streak > 0) {
@@ -145,10 +151,7 @@ exports.toggleHabitCompletion = async (req, res) => {
     if (habit.userId.toString() !== userId)
       return res.status(401).json({ message: "Not authorized" });
 
-    const now = new Date();
-    const today = new Date(
-      Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
-    );
+    const today = getLocalTodayUTC();
 
     const historyEntry = await HabitHistory.findOne({
       userId,
@@ -243,12 +246,9 @@ exports.toggleHabitCompletion = async (req, res) => {
 // Helper to calculate streak (Counting backwards)
 const calculateStreak = async (userId, habitId) => {
   let streak = 0;
-  const now = new Date();
-  let currentDate = new Date(
-    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
-  );
+  let currentDate = getLocalTodayUTC();
   // Move to yesterday since we just unchecked today
-  currentDate.setDate(currentDate.getDate() - 1);
+  currentDate.setUTCDate(currentDate.getUTCDate() - 1);
 
   while (true) {
     const entry = await HabitHistory.findOne({
@@ -258,7 +258,7 @@ const calculateStreak = async (userId, habitId) => {
     });
     if (entry && entry.status === "completed") {
       streak++;
-      currentDate.setDate(currentDate.getDate() - 1);
+      currentDate.setUTCDate(currentDate.getUTCDate() - 1);
     } else {
       break;
     }
@@ -352,7 +352,7 @@ const getPreviousDueDate = (habit, today) => {
   const prev = new Date(today);
 
   if (habit.frequencyType === "daily") {
-    prev.setDate(prev.getDate() - 1);
+    prev.setUTCDate(prev.getUTCDate() - 1);
     return prev;
   }
 
@@ -361,19 +361,19 @@ const getPreviousDueDate = (habit, today) => {
     const scheduledDays = new Set(habit.frequencyData);
     for (let i = 1; i <= 7; i++) {
       const checkDate = new Date(today);
-      checkDate.setDate(checkDate.getDate() - i);
-      if (scheduledDays.has(checkDate.getDay())) {
+      checkDate.setUTCDate(checkDate.getUTCDate() - i);
+      if (scheduledDays.has(checkDate.getUTCDay())) {
         return checkDate;
       }
     }
     // Fallback to 7 days ago if none found (shouldn't happen with valid data)
-    prev.setDate(prev.getDate() - 7);
+    prev.setUTCDate(prev.getUTCDate() - 7);
     return prev;
   }
 
   if (habit.frequencyType === "custom") {
     const interval = habit.frequencyData[0] || 1;
-    prev.setDate(prev.getDate() - interval);
+    prev.setUTCDate(prev.getUTCDate() - interval);
     return prev;
   }
 
@@ -385,21 +385,21 @@ const isHabitDue = (habit, date) => {
   if (habit.frequencyType === "daily") return true;
 
   if (habit.frequencyType === "weekly") {
-    return habit.frequencyData.includes(date.getDay());
+    return habit.frequencyData.includes(date.getUTCDay());
   }
 
   if (habit.frequencyType === "custom") {
     const interval = habit.frequencyData[0] || 1;
     const start = new Date(habit.createdAt);
     const startUTC = Date.UTC(
-      start.getFullYear(),
-      start.getMonth(),
-      start.getDate(),
+      start.getUTCFullYear(),
+      start.getUTCMonth(),
+      start.getUTCDate(),
     );
     const dateUTC = Date.UTC(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate(),
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
     );
     const diffDays = Math.floor((dateUTC - startUTC) / (1000 * 60 * 60 * 24));
     return diffDays % interval === 0;
