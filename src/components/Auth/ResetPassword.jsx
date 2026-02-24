@@ -5,6 +5,8 @@ const ResetPassword = ({ email, onResetSuccess, onBackToLogin }) => {
     const [formData, setFormData] = useState({ code: '', newPassword: '', confirmPassword: '' });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -53,24 +55,62 @@ const ResetPassword = ({ email, onResetSuccess, onBackToLogin }) => {
                     className="habit-textbox"
                     style={{ textAlign: 'center', letterSpacing: '0.5rem', fontSize: '1.2rem', fontWeight: 'bold' }}
                 />
-                <input
-                    type="password"
-                    name="newPassword"
-                    placeholder="New Password"
-                    value={formData.newPassword}
-                    onChange={handleChange}
-                    required
-                    className="habit-textbox"
-                />
-                <input
-                    type="password"
-                    name="confirmPassword"
-                    placeholder="Confirm New Password"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    required
-                    className="habit-textbox"
-                />
+                <div style={{ position: 'relative', width: '100%' }}>
+                    <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        name="newPassword"
+                        placeholder="New Password"
+                        value={formData.newPassword}
+                        onChange={handleChange}
+                        required
+                        className="habit-textbox"
+                        style={{ width: '100%', paddingRight: '2.5rem', boxSizing: 'border-box' }}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        style={{
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'none',
+                            border: 'none',
+                            color: '#a0a0b8',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        <i className={`fas ${showNewPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                    </button>
+                </div>
+                <div style={{ position: 'relative', width: '100%' }}>
+                    <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        name="confirmPassword"
+                        placeholder="Confirm New Password"
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        required
+                        className="habit-textbox"
+                        style={{ width: '100%', paddingRight: '2.5rem', boxSizing: 'border-box' }}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        style={{
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'none',
+                            border: 'none',
+                            color: '#a0a0b8',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        <i className={`fas ${showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                    </button>
+                </div>
                 <button type="submit" className="habit-submit" disabled={loading}>
                     {loading ? 'Resetting...' : 'Reset Password'}
                 </button>

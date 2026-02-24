@@ -5,6 +5,7 @@ const Register = ({ onRegistered, onSwitchToLogin }) => {
     const [formData, setFormData] = useState({ username: '', email: '', password: '' });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -51,15 +52,34 @@ const Register = ({ onRegistered, onSwitchToLogin }) => {
                     required
                     className="habit-textbox"
                 />
-                <input
-                    type="password"
-                    name="password"
-                    placeholder="Password (Min 8 chars, 1 Upper, 1 Special)"
-                    value={formData.password}
-                    onChange={handleChange}
-                    required
-                    className="habit-textbox"
-                />
+                <div style={{ position: 'relative', width: '100%' }}>
+                    <input
+                        type={showPassword ? 'text' : 'password'}
+                        name="password"
+                        placeholder="Password (Min 8 chars, 1 Upper, 1 Special)"
+                        value={formData.password}
+                        onChange={handleChange}
+                        required
+                        className="habit-textbox"
+                        style={{ width: '100%', paddingRight: '2.5rem', boxSizing: 'border-box' }}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        style={{
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'none',
+                            border: 'none',
+                            color: '#a0a0b8',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                    </button>
+                </div>
                 <button type="submit" className="habit-submit" disabled={loading}>
                     {loading ? 'Signing Up...' : 'Register'}
                 </button>
