@@ -17,7 +17,13 @@ import BadgePopup from "./components/BadgePopup";
 import BadgeCollection from "./components/BadgeCollection";
 import ChatSystem from "./components/ChatSystem";
 import { registerPush } from "./utils/push";
-
+import homeIcon from "./assets/icons/Home.png";
+import goalsIcon from "./assets/icons/Goals.png";
+import rankIcon from "./assets/icons/rank.png";
+import achievementsIcon from "./assets/icons/achievements.png";
+import chatIcon from "./assets/icons/chat.png";
+import addIcon from "./assets/icons/add.png";
+import logoutIcon from "./assets/icons/logout.png";
 export default function App() {
   const {
     user,
@@ -89,9 +95,11 @@ export default function App() {
   }, [progress, habits.length]);
 
   const handleLogout = () => {
-    logout();
-    setHabits([]);
-    setHistory([]);
+    if (window.confirm("Are you sure you want to log out?")) {
+      logout();
+      setHabits([]);
+      setHistory([]);
+    }
   };
 
   if (loading) {
@@ -182,39 +190,8 @@ export default function App() {
                   </p>
                 </div>
                 <div className="header-actions" style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={() => setIsChatOpen(true)} className="chat-toggle-btn" style={{
-                    background: totalUnread > 0 ? 'rgba(99,102,241,0.25)' : 'rgba(99,102,241,0.15)',
-                    color: '#818cf8',
-                    border: totalUnread > 0 ? '2px solid #6366f1' : '1px solid rgba(99,102,241,0.3)',
-                    borderRadius: '20px',
-                    padding: '4px 12px',
-                    fontSize: '12px',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    position: 'relative',
-                    transition: 'all 0.3s ease'
-                  }}>
-                    💬 Chat
-                    {totalUnread > 0 && (
-                      <span className="unread-pulse-badge" style={{
-                        position: 'absolute',
-                        top: '-10px',
-                        right: '-10px',
-                        background: '#ef4444',
-                        color: 'white',
-                        borderRadius: '12px',
-                        padding: '2px 8px',
-                        fontSize: '11px',
-                        fontWeight: '900',
-                        boxShadow: '0 0 15px rgba(239, 68, 68, 0.7)',
-                        border: '2.5px solid #1a1a2e',
-                        animation: 'badgePulse 1.5s infinite'
-                      }}>
-                        {totalUnread}
-                      </span>
-                    )}
-                  </button>
-                  <button onClick={handleLogout} className="logout-pill">
+                  <button onClick={handleLogout} className="logout-pill" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px' }}>
+                    <img src={logoutIcon} alt="Logout" style={{ width: '16px', height: '16px', objectFit: 'contain' }} />
                     Logout
                   </button>
                 </div>
@@ -343,39 +320,61 @@ export default function App() {
               <button
                 className={activeTab === "home" ? "active" : ""}
                 onClick={() => setActiveTab("home")}
-                data-icon="🏠"
               >
-                Home
+                <img src={homeIcon} alt="Home" className="nav-icon" />
               </button>
               <button
                 className={activeTab === "goals" ? "active" : ""}
                 onClick={() => setActiveTab("goals")}
-                data-icon="🎯"
               >
-                Goals
+                <img src={goalsIcon} alt="Goals" className="nav-icon" />
               </button>
 
               <button
-                className={`nav-add-btn ${activeTab === "add" ? "active" : ""}`}
+                className={activeTab === "add" ? "active" : ""}
                 onClick={() => setActiveTab("add")}
               >
-                <span className="plus-icon">+</span>
+                <img src={addIcon} alt="Add" className="nav-icon" />
+              </button>
+
+              <button
+                className={isChatOpen ? "active" : ""}
+                onClick={() => setIsChatOpen(true)}
+                style={{ position: 'relative' }}
+              >
+                <img src={chatIcon} alt="Messages" className="nav-icon" />
+                {totalUnread > 0 && (
+                  <span className="unread-pulse-badge" style={{
+                    position: 'absolute',
+                    top: '-6px',
+                    right: '12px',
+                    background: '#ef4444',
+                    color: 'white',
+                    borderRadius: '12px',
+                    padding: '2px 6px',
+                    fontSize: '9px',
+                    fontWeight: '900',
+                    boxShadow: '0 0 10px rgba(239, 68, 68, 0.7)',
+                    border: '1.5px solid #1a1a2e',
+                    animation: 'badgePulse 1.5s infinite'
+                  }}>
+                    {totalUnread}
+                  </span>
+                )}
               </button>
 
               <button
                 className={activeTab === "leaderboard" ? "active" : ""}
                 onClick={() => setActiveTab("leaderboard")}
-                data-icon="🏆"
               >
-                Rank
+                <img src={rankIcon} alt="Rank" className="nav-icon" />
               </button>
 
               <button
                 className={activeTab === "badges" ? "active" : ""}
                 onClick={() => setActiveTab("badges")}
-                data-icon="🏅"
               >
-                Achievements
+                <img src={achievementsIcon} alt="Achievements" className="nav-icon" />
               </button>
 
             </div>

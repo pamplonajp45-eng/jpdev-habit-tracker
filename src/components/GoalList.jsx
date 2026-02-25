@@ -48,7 +48,7 @@ const GoalList = ({ habits }) => {
     return (
         <div style={{ marginTop: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h2 className="stats-title" style={{ fontSize: '1.2rem', margin: 0 }}>🏆 Goals & Milestones</h2>
+                <h2 className="stats-title" style={{ fontSize: '1.2rem', margin: 0 }}>Goals & Milestones</h2>
                 <button
                     onClick={() => setShowCreate(!showCreate)}
                     className="habit-submit"

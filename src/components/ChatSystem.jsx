@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import api from "../utils/api";
 import { io } from "socket.io-client";
+import chatIcon from "../assets/icons/chat.png";
+import friendsIcon from "../assets/icons/friends.png";
+import notificationsIcon from "../assets/icons/notifications.png";
+import exploreIcon from "../assets/icons/explore.png";
 
 const statusColor = { online: "#22d3a5", away: "#f59e0b", offline: "#64748b" };
 
@@ -337,10 +341,10 @@ export default function ChatSystem({ isOpen, onClose, currentUser, onUnreadChang
                         {/* Nav */}
                         <div style={styles.nav}>
                             {[
-                                { key: "chat", label: "Messages", icon: "💬" },
-                                { key: "friends", label: "Friends", icon: "👥", badge: friends.length },
-                                { key: "explore", label: "Explore", icon: "🔍" },
-                                { key: "requests", label: "Requests", icon: "📨", badge: pendingRequests.length },
+                                { key: "chat", label: "Messages", icon: chatIcon },
+                                { key: "friends", label: "Friends", icon: friendsIcon, badge: friends.length },
+                                { key: "explore", label: "Explore", icon: exploreIcon },
+                                { key: "requests", label: "Requests", icon: notificationsIcon, badge: pendingRequests.length },
                             ].map((tab) => (
                                 <button
                                     key={tab.key}
@@ -348,7 +352,7 @@ export default function ChatSystem({ isOpen, onClose, currentUser, onUnreadChang
                                     onClick={() => setView(tab.key)}
                                     className="nav-btn"
                                 >
-                                    <span style={styles.navIcon}>{tab.icon}</span>
+                                    <img src={tab.icon} alt={tab.label} style={{ width: 22, height: 22, objectFit: 'contain', marginBottom: 2 }} />
                                     <span style={styles.navLabel}>{tab.label}</span>
                                     {tab.badge > 0 && <span style={styles.badge}>{tab.badge}</span>}
                                 </button>
@@ -371,7 +375,9 @@ export default function ChatSystem({ isOpen, onClose, currentUser, onUnreadChang
                                 <>
                                     {filteredFriends.length === 0 ? (
                                         <div style={styles.emptyState}>
-                                            <div style={{ fontSize: 40, marginBottom: 12 }}>💬</div>
+                                            <div style={{ marginBottom: 12 }}>
+                                                <img src={chatIcon} alt="Chat" style={{ width: 50, height: 50, objectFit: 'contain', opacity: 0.8 }} />
+                                            </div>
                                             <div style={{ fontWeight: 700, fontSize: 16, color: "#e2e8f0" }}>No conversations yet</div>
                                             <div style={{ fontSize: 13, color: "#64748b", marginTop: 8, lineHeight: 1.5, padding: "0 20px" }}>
                                                 Select a conversation or find<br />new friends in <b>Explore</b>
@@ -571,7 +577,9 @@ export default function ChatSystem({ isOpen, onClose, currentUser, onUnreadChang
                             </>
                         ) : (
                             <div style={styles.welcomePanel}>
-                                <div style={{ fontSize: 64 }}>💬</div>
+                                <div style={{ marginBottom: 16 }}>
+                                    <img src={chatIcon} alt="Messages" style={{ width: 80, height: 80, objectFit: 'contain', opacity: 0.8 }} />
+                                </div>
                                 <h2 style={styles.welcomeTitle}>Your Messages</h2>
                                 <p style={styles.welcomeSub}>Select a conversation to start chatting</p>
                             </div>
