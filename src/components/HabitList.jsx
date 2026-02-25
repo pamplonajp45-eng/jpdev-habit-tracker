@@ -14,6 +14,8 @@ const habitColors = [
 ];
 
 export default function HabitList({ habits, onToggle, onDelete, onEdit, togglingIds }) {
+  const [editingHabitId, setEditingHabitId] = useState(null);
+
   return (
     <ul className="habit-list">
       {habits.map((habit, index) => {
@@ -33,12 +35,24 @@ export default function HabitList({ habits, onToggle, onDelete, onEdit, toggling
 
               <div className="habit-card-middle">
                 <div className="habit-title-row">
-                  <EditableHabitName habit={habit} onEdit={onEdit} color={color} />
-                  <div className="fire-streak-mini">
-                    {getFireImages(habit.streak).map((img, i) => (
-                      <img key={i} src={img} alt="fire" className="fire-icon-small" />
-                    ))}
-                  </div>
+                  <EditableHabitName
+                    habit={habit}
+                    onEdit={(id, name, category) => {
+                      onEdit(id, name, category);
+                      setEditingHabitId(null);
+                    }}
+                    color={color}
+                    isEditing={editingHabitId === habit._id}
+                    onStartEdit={() => setEditingHabitId(habit._id)}
+                    onCancelEdit={() => setEditingHabitId(null)}
+                  />
+                  {editingHabitId !== habit._id && (
+                    <div className="fire-streak-mini">
+                      {getFireImages(habit.streak).map((img, i) => (
+                        <img key={i} src={img} alt="fire" className="fire-icon-small" />
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <p className="habit-card-info">
@@ -50,29 +64,35 @@ export default function HabitList({ habits, onToggle, onDelete, onEdit, toggling
                 </p>
               </div>
 
-              <div className="habit-card-right">
-                <div className="checkbox-wrapper">
-                  <input
-                    type="checkbox"
-                    checked={habit.completedToday}
-                    onChange={() => onToggle(habit._id)}
-                    className="habit-checkbox-custom"
-                    disabled={(togglingIds && togglingIds.has(habit._id)) || !habit.isDueToday}
-                    id={`habit-${habit._id}`}
-                  />
-                  <label htmlFor={`habit-${habit._id}`} className="checkbox-ui" style={{ borderColor: color }}>
-                    <span className="check-mark" style={{ backgroundColor: color }}>✓</span>
-                  </label>
-                </div>
+              {editingHabitId !== habit._id && (
+                <div className="habit-card-right">
+                  <div className="checkbox-wrapper">
+                    <input
+                      type="checkbox"
+                      checked={habit.completedToday}
+                      onChange={() => onToggle(habit._id)}
+                      className="habit-checkbox-custom"
+                      disabled={(togglingIds && togglingIds.has(habit._id)) || !habit.isDueToday}
+                      id={`habit-${habit._id}`}
+                    />
+                    <label htmlFor={`habit-${habit._id}`} className="checkbox-ui" style={{ borderColor: color }}>
+                      <span className="check-mark" style={{ backgroundColor: color }}>✓</span>
+                    </label>
+                  </div>
 
-                <button
-                  onClick={() => onDelete(habit._id)}
-                  className="delete-btn-mini"
-                  aria-label="Delete habit"
-                >
-                  ✕
-                </button>
-              </div>
+                  <button
+                    onClick={() => {
+                      if (window.confirm("Are you sure you want to delete this habit? All streaks and history will be lost. This cannot be undone.")) {
+                        onDelete(habit._id);
+                      }
+                    }}
+                    className="delete-btn-mini"
+                    aria-label="Delete habit"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
             </div>
           </li>
         );
@@ -91,20 +111,18 @@ function getFireImages(streak) {
   return fireImages;
 }
 
-function EditableHabitName({ habit, onEdit }) {
-  const [isEditing, setIsEditing] = useState(false);
+function EditableHabitName({ habit, onEdit, isEditing, onStartEdit, onCancelEdit }) {
   const [name, setName] = useState(habit.name);
   const [category, setCategory] = useState(habit.category || "");
 
   const handleSave = () => {
     onEdit(habit._id, name, category);
-    setIsEditing(false);
   };
 
   const handleCancel = () => {
     setName(habit.name);
     setCategory(habit.category || "");
-    setIsEditing(false);
+    onCancelEdit();
   };
 
   const handleKeyDown = (e) => {
@@ -113,7 +131,7 @@ function EditableHabitName({ habit, onEdit }) {
   };
 
   return isEditing ? (
-    <div className="inline-edit-container" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', width: '100%' }}>
+    <div className="inline-edit-container" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', width: '100%', marginRight: '30px' }}>
       <input
         type="text"
         value={name}
@@ -121,40 +139,43 @@ function EditableHabitName({ habit, onEdit }) {
         onKeyDown={handleKeyDown}
         autoFocus
         className="editing-input"
-        style={{ flex: 1 }}
+        style={{ flex: '1 1 100%', minWidth: '120px' }}
       />
-      <select
-        value={category}
-        onChange={(e) => setCategory(e.target.value)}
-        className="category-dropdown-inline"
-        style={{
-          background: "rgba(0, 0, 0, 0.2)",
-          border: "1px solid rgba(255, 255, 255, 0.1)",
-          color: "white",
-          padding: "4px 8px",
-          borderRadius: "8px",
-          fontSize: "0.8rem",
-          maxWidth: "100px"
-        }}
-      >
-        <option value="" disabled>Category</option>
-        <option value="health">Health</option>
-        <option value="finance">Finance</option>
-        <option value="relationship">Relationship</option>
-        <option value="self-care">Self-care</option>
-        <option value="hobby">Hobby</option>
-        <option value="sports">Sports</option>
-        <option value="work">Work</option>
-        <option value="study">Study</option>
-        <option value="self-improvement">Self-improvement</option>
-      </select>
-      <button onClick={handleSave} style={{ background: '#6366f1', border: 'none', color: 'white', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Save</button>
-      <button onClick={handleCancel} style={{ background: 'transparent', border: '1px solid #4f46e5', color: '#a0a0b8', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>✕</button>
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'nowrap' }}>
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className="category-dropdown-inline"
+          style={{
+            background: "rgba(0, 0, 0, 0.2)",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            color: "white",
+            padding: "4px 8px",
+            borderRadius: "8px",
+            fontSize: "0.8rem",
+            flex: '1',
+            minWidth: '80px'
+          }}
+        >
+          <option value="" disabled>Category</option>
+          <option value="health">Health</option>
+          <option value="finance">Finance</option>
+          <option value="relationship">Relationship</option>
+          <option value="self-care">Self-care</option>
+          <option value="hobby">Hobby</option>
+          <option value="sports">Sports</option>
+          <option value="work">Work</option>
+          <option value="study">Study</option>
+          <option value="self-improvement">Self-improvement</option>
+        </select>
+        <button onClick={handleSave} style={{ background: '#6366f1', border: 'none', color: 'white', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.5rem' }}>Save</button>
+        <button onClick={handleCancel} style={{ background: 'transparent', border: '1px solid #4f46e5', color: '#a0a0b8', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.5rem' }}>✕</button>
+      </div>
     </div>
   ) : (
     <span
       className={`habit-name-text ${habit.completedToday ? "checked" : ""}`}
-      onClick={() => setIsEditing(true)}
+      onClick={() => onStartEdit()}
     >
       {habit.name}
     </span>
