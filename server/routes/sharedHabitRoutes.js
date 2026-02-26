@@ -5,7 +5,7 @@
 const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
-const authMiddleware = require("../middleware/auth"); // your existing JWT middleware
+const { protect } = require("../middleware/authMiddleware"); // your existing JWT middleware
 const User = require("../models/User"); // your existing User model
 
 // ─────────────────────────────────────────────────
@@ -56,7 +56,7 @@ function resetIfNewDay(habit) {
 // ─────────────────────────────────────────────────
 // GET /api/shared-habits  — list habits for current user
 // ─────────────────────────────────────────────────
-router.get("/", authMiddleware, async (req, res) => {
+router.get("/", protect, async (req, res) => {
   try {
     const habits = await SharedHabit.find({
       "members.userId": req.user._id,
@@ -79,7 +79,7 @@ router.get("/", authMiddleware, async (req, res) => {
 // POST /api/shared-habits  — create a new party habit
 // Body: { name, emoji, invitedUsernames: string[] }
 // ─────────────────────────────────────────────────
-router.post("/", authMiddleware, async (req, res) => {
+router.post("/", protect, async (req, res) => {
   const { name, emoji, invitedUsernames } = req.body;
 
   if (!name || !invitedUsernames?.length) {
@@ -119,7 +119,7 @@ router.post("/", authMiddleware, async (req, res) => {
 // ─────────────────────────────────────────────────
 // POST /api/shared-habits/:id/toggle  — mark/unmark self complete
 // ─────────────────────────────────────────────────
-router.post("/:id/toggle", authMiddleware, async (req, res) => {
+router.post("/:id/toggle", protect, async (req, res) => {
   try {
     const habit = await SharedHabit.findById(req.params.id);
     if (!habit) return res.status(404).json({ message: "Not found" });
@@ -165,7 +165,7 @@ router.post("/:id/toggle", authMiddleware, async (req, res) => {
 // ─────────────────────────────────────────────────
 // POST /api/shared-habits/:id/leave  — leave a party
 // ─────────────────────────────────────────────────
-router.post("/:id/leave", authMiddleware, async (req, res) => {
+router.post("/:id/leave", protect, async (req, res) => {
   try {
     const habit = await SharedHabit.findById(req.params.id);
     if (!habit) return res.status(404).json({ message: "Not found" });
@@ -190,7 +190,7 @@ router.post("/:id/leave", authMiddleware, async (req, res) => {
 // ─────────────────────────────────────────────────
 // DELETE /api/shared-habits/:id  — creator deletes
 // ─────────────────────────────────────────────────
-router.delete("/:id", authMiddleware, async (req, res) => {
+router.delete("/:id", protect, async (req, res) => {
   try {
     const habit = await SharedHabit.findById(req.params.id);
     if (!habit) return res.status(404).json({ message: "Not found" });

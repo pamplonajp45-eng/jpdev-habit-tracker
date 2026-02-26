@@ -96,14 +96,11 @@ app.use('/api/habits', require('./routes/habitRoutes'));
 app.use('/api/heatmap', require('./routes/heatmapRoutes'));
 app.use('/api/leaderboard', require('./routes/leaderboardRoutes'));
 app.use('/api/goals', require('./routes/goalRoutes'));
-<<<<<<< HEAD
 app.use('/api/friends', require('./routes/friendRoutes'));
 app.use('/api/chat', require('./routes/chatRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
-=======
 app.use('/api/shared-habits', require('./routes/sharedHabitRoutes'));
->>>>>>> feature/xp-system
 
 // Root Route
 app.get('/', (req, res) => {
