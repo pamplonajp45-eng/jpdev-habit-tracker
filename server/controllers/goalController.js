@@ -14,9 +14,6 @@ exports.getGoals = async (req, res) => {
     }
 };
 
-// @desc    Create a goal
-// @route   POST /api/goals
-// @access  Private
 exports.createGoal = async (req, res) => {
     try {
         const { title, description, type, targetValue, linkedHabitId, deadline } = req.body;
@@ -61,9 +58,6 @@ exports.createGoal = async (req, res) => {
     }
 };
 
-// @desc    Update a goal
-// @route   PUT /api/goals/:id
-// @access  Private
 exports.updateGoal = async (req, res) => {
     try {
         let goal = await Goal.findById(req.params.id);
@@ -79,9 +73,6 @@ exports.updateGoal = async (req, res) => {
     }
 };
 
-// @desc    Delete a goal
-// @route   DELETE /api/goals/:id
-// @access  Private
 exports.deleteGoal = async (req, res) => {
     try {
         const goal = await Goal.findById(req.params.id);

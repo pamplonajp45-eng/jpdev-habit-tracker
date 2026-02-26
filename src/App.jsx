@@ -295,7 +295,7 @@ export default function App() {
 
             {activeTab === "add" && (
               <div className="add-habit-page">
-                <h2 className="page-title">New Habit</h2>
+                <h2 className="page-title">+ New Habit</h2>
                 <HabitInput
                   onAdd={(data) => {
                     addHabit(data);
