@@ -15,6 +15,7 @@ import { useHabits } from "./hooks/useHabits";
 import XPBar from "./components/XPBar";
 import BadgePopup from "./components/BadgePopup";
 import BadgeCollection from "./components/BadgeCollection";
+import SharedHabits from "./components/SharedHabits";
 
 export default function App() {
   const {
@@ -268,6 +269,7 @@ export default function App() {
             {activeTab === "goals" && <GoalList habits={habits} />}
             {activeTab === "leaderboard" && <Leaderboard />}
             {activeTab === "badges" && <BadgeCollection user={user} />}
+            {activeTab === "party" && <SharedHabits currentUser={user} />}
 
 
             <div className="bottom-nav">
@@ -307,6 +309,14 @@ export default function App() {
                 data-icon="🏅"
               >
                 Achievements
+              </button>
+
+              <button
+                className={activeTab === "party" ? "active" : ""}
+                onClick={() => setActiveTab("party")}
+                data-icon="🤝"
+              >
+                Party
               </button>
 
             </div>

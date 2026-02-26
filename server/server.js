@@ -38,6 +38,7 @@ app.use('/api/habits', require('./routes/habitRoutes'));
 app.use('/api/heatmap', require('./routes/heatmapRoutes'));
 app.use('/api/leaderboard', require('./routes/leaderboardRoutes'));
 app.use('/api/goals', require('./routes/goalRoutes'));
+app.use('/api/shared-habits', require('./routes/sharedHabitRoutes'));
 
 // Root Route
 app.get('/', (req, res) => {
