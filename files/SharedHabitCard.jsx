@@ -1,0 +1,236 @@
+import { useState } from "react";
+
+const avatarColors = [
+  "#6366f1", "#ec4899", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ef4444"
+];
+
+function getInitials(name) {
+  return name ? name.slice(0, 2).toUpperCase() : "??";
+}
+
+function getColor(username) {
+  let hash = 0;
+  for (let c of username) hash = c.charCodeAt(0) + ((hash << 5) - hash);
+  return avatarColors[Math.abs(hash) % avatarColors.length];
+}
+
+export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const members = habit.members || [];
+  const totalMembers = members.length;
+  const completedMembers = members.filter((m) => m.completedToday).length;
+  const allDone = completedMembers === totalMembers && totalMembers > 0;
+  const myEntry = members.find((m) => m.userId === currentUser._id);
+  const iDone = myEntry?.completedToday ?? false;
+
+  const progressPct = totalMembers > 0 ? Math.round((completedMembers / totalMembers) * 100) : 0;
+
+  return (
+    <div
+      className="shared-habit-card"
+      style={{
+        background: allDone
+          ? "linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(99,102,241,0.1) 100%)"
+          : "rgba(30,30,46,0.7)",
+        border: allDone
+          ? "1.5px solid rgba(16,185,129,0.5)"
+          : "1.5px solid rgba(99,102,241,0.2)",
+        borderRadius: "16px",
+        padding: "1rem 1.1rem",
+        marginBottom: "1rem",
+        transition: "all 0.3s ease",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {/* Glow pulse when all done */}
+      {allDone && (
+        <div style={{
+          position: "absolute", inset: 0,
+          background: "radial-gradient(ellipse at 50% 0%, rgba(16,185,129,0.18) 0%, transparent 70%)",
+          pointerEvents: "none"
+        }} />
+      )}
+
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
+        {/* Emoji / icon */}
+        <div style={{
+          width: 44, height: 44, borderRadius: "12px", flexShrink: 0,
+          background: "rgba(99,102,241,0.2)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: "1.4rem"
+        }}>
+          {habit.emoji || "🤝"}
+        </div>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+            <span style={{ fontWeight: 700, color: "#e2e8f0", fontSize: "1rem" }}>
+              {habit.name}
+            </span>
+            {/* Streak badge */}
+            {habit.streak > 0 && (
+              <span style={{
+                background: "rgba(245,158,11,0.2)", color: "#fbbf24",
+                border: "1px solid rgba(245,158,11,0.35)",
+                borderRadius: "20px", padding: "1px 8px", fontSize: "0.75rem", fontWeight: 700
+              }}>
+                🔥 {habit.streak}d streak
+              </span>
+            )}
+            {allDone && (
+              <span style={{
+                background: "rgba(16,185,129,0.2)", color: "#34d399",
+                border: "1px solid rgba(16,185,129,0.4)",
+                borderRadius: "20px", padding: "1px 8px", fontSize: "0.75rem", fontWeight: 700
+              }}>
+                ✓ Team Done!
+              </span>
+            )}
+          </div>
+
+          <p style={{ color: "#6b7280", fontSize: "0.78rem", margin: "2px 0 0" }}>
+            Party • {totalMembers} members
+          </p>
+        </div>
+
+        {/* My toggle button */}
+        <button
+          onClick={() => onToggle(habit._id)}
+          style={{
+            width: 38, height: 38, borderRadius: "10px", flexShrink: 0,
+            border: iDone ? "2px solid #34d399" : "2px solid rgba(99,102,241,0.4)",
+            background: iDone ? "rgba(16,185,129,0.2)" : "rgba(30,30,46,0.8)",
+            color: iDone ? "#34d399" : "#6b7280",
+            fontSize: "1.1rem", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "all 0.2s ease"
+          }}
+          title={iDone ? "Mark as not done" : "Mark as done"}
+        >
+          {iDone ? "✓" : "○"}
+        </button>
+      </div>
+
+      {/* Team progress bar */}
+      <div style={{ marginTop: "0.85rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "5px" }}>
+          <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>Team progress</span>
+          <span style={{ fontSize: "0.75rem", color: "#a0a0b8", fontWeight: 600 }}>
+            {completedMembers}/{totalMembers}
+          </span>
+        </div>
+        <div style={{
+          height: 6, background: "rgba(255,255,255,0.07)", borderRadius: 99, overflow: "hidden"
+        }}>
+          <div style={{
+            height: "100%", borderRadius: 99,
+            width: `${progressPct}%`,
+            background: allDone
+              ? "linear-gradient(90deg, #10b981, #34d399)"
+              : "linear-gradient(90deg, #6366f1, #818cf8)",
+            transition: "width 0.5s cubic-bezier(0.34,1.56,0.64,1)"
+          }} />
+        </div>
+      </div>
+
+      {/* Member avatars row */}
+      <div style={{ display: "flex", alignItems: "center", marginTop: "0.75rem", gap: "0.35rem", flexWrap: "wrap" }}>
+        {members.map((member) => (
+          <div
+            key={member.userId}
+            title={`${member.username} – ${member.completedToday ? "Done ✓" : "Not yet"}`}
+            style={{
+              width: 32, height: 32, borderRadius: "50%",
+              background: getColor(member.username),
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "0.7rem", fontWeight: 800, color: "#fff",
+              border: member.completedToday
+                ? "2.5px solid #34d399"
+                : "2.5px solid rgba(255,255,255,0.1)",
+              position: "relative",
+              opacity: member.completedToday ? 1 : 0.55,
+              transition: "all 0.2s ease",
+              cursor: "default",
+            }}
+          >
+            {getInitials(member.username)}
+            {member.completedToday && (
+              <span style={{
+                position: "absolute", bottom: -3, right: -3,
+                background: "#10b981", borderRadius: "50%",
+                width: 13, height: 13, display: "flex",
+                alignItems: "center", justifyContent: "center",
+                fontSize: "0.5rem", color: "#fff", fontWeight: 900,
+                border: "1.5px solid #1a1a2e"
+              }}>✓</span>
+            )}
+          </div>
+        ))}
+
+        <button
+          onClick={() => setExpanded(!expanded)}
+          style={{
+            marginLeft: "auto", background: "none", border: "none",
+            color: "#6b7280", fontSize: "0.75rem", cursor: "pointer",
+            padding: "2px 6px"
+          }}
+        >
+          {expanded ? "▲ less" : "▼ details"}
+        </button>
+      </div>
+
+      {/* Expanded member list */}
+      {expanded && (
+        <div style={{
+          marginTop: "0.75rem", borderTop: "1px solid rgba(255,255,255,0.06)",
+          paddingTop: "0.75rem", display: "flex", flexDirection: "column", gap: "0.4rem"
+        }}>
+          {members.map((member) => (
+            <div key={member.userId} style={{
+              display: "flex", alignItems: "center", gap: "0.6rem",
+              padding: "0.35rem 0.5rem", borderRadius: "8px",
+              background: "rgba(255,255,255,0.03)"
+            }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: "50%",
+                background: getColor(member.username),
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "0.65rem", fontWeight: 800, color: "#fff",
+                flexShrink: 0
+              }}>
+                {getInitials(member.username)}
+              </div>
+              <span style={{ fontSize: "0.82rem", color: "#c4c4d4", flex: 1 }}>
+                {member.username}
+                {member.userId === currentUser._id && (
+                  <span style={{ color: "#6366f1", marginLeft: 4, fontSize: "0.7rem" }}>(you)</span>
+                )}
+              </span>
+              <span style={{
+                fontSize: "0.75rem", fontWeight: 700,
+                color: member.completedToday ? "#34d399" : "#ef4444"
+              }}>
+                {member.completedToday ? "✓ Done" : "✗ Pending"}
+              </span>
+            </div>
+          ))}
+
+          <button
+            onClick={() => onLeave && onLeave(habit._id)}
+            style={{
+              marginTop: "0.4rem", background: "rgba(239,68,68,0.1)",
+              border: "1px solid rgba(239,68,68,0.25)",
+              color: "#ef4444", borderRadius: "8px", padding: "6px",
+              fontSize: "0.78rem", cursor: "pointer", width: "100%"
+            }}
+          >
+            Leave Party
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
