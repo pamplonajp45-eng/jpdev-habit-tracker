@@ -15,6 +15,7 @@ import { useHabits } from "./hooks/useHabits";
 import XPBar from "./components/XPBar";
 import BadgePopup from "./components/BadgePopup";
 import BadgeCollection from "./components/BadgeCollection";
+<<<<<<< HEAD
 import ChatSystem from "./components/ChatSystem";
 import { registerPush } from "./utils/push";
 import homeIcon from "./assets/icons/home.png";
@@ -24,6 +25,10 @@ import achievementsIcon from "./assets/icons/achievements.png";
 import chatIcon from "./assets/icons/chat.png";
 import addIcon from "./assets/icons/add.png";
 import logoutIcon from "./assets/icons/logout.png";
+=======
+import SharedHabits from "./components/SharedHabits";
+
+>>>>>>> feature/xp-system
 export default function App() {
   const {
     user,
@@ -314,6 +319,7 @@ export default function App() {
             {activeTab === "goals" && <GoalList habits={habits} />}
             {activeTab === "leaderboard" && <Leaderboard />}
             {activeTab === "badges" && <BadgeCollection user={user} />}
+            {activeTab === "party" && <SharedHabits currentUser={user} />}
 
 
             <div className="bottom-nav">
@@ -375,6 +381,14 @@ export default function App() {
                 onClick={() => setActiveTab("badges")}
               >
                 <img src={achievementsIcon} alt="Achievements" className="nav-icon" />
+              </button>
+
+              <button
+                className={activeTab === "party" ? "active" : ""}
+                onClick={() => setActiveTab("party")}
+                data-icon="🤝"
+              >
+                Party
               </button>
 
             </div>
