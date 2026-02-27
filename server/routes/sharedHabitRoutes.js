@@ -19,18 +19,34 @@ const getLocalTodayUTC = () => {
 const SharedHabit = require("../models/SharedHabit");
 
 // ─────────────────────────────────────────────────
-// Helper: today's date string
+// Helper: today's date string (Manila timezone)
 // ─────────────────────────────────────────────────
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+function getTodayStr() {
+  const now = new Date();
+  const phTimeString = now.toLocaleString("en-US", { timeZone: "Asia/Manila" });
+  const localNow = new Date(phTimeString);
+  const y = localNow.getFullYear();
+  const m = String(localNow.getMonth() + 1).padStart(2, "0");
+  const d = String(localNow.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function getYesterdayStr() {
+  const now = new Date();
+  const phTimeString = now.toLocaleString("en-US", { timeZone: "Asia/Manila" });
+  const localNow = new Date(phTimeString);
+  localNow.setDate(localNow.getDate() - 1);
+  const y = localNow.getFullYear();
+  const m = String(localNow.getMonth() + 1).padStart(2, "0");
+  const d = String(localNow.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 // ─────────────────────────────────────────────────
 // Helper: reset completedToday if it's a new day
 // ─────────────────────────────────────────────────
 function resetIfNewDay(habit) {
-  const today = getLocalTodayUTC();
-  const todayS = today.toISOString().slice(0, 10);
+  const todayS = getTodayStr();
   let changed = false;
   habit.members.forEach((m) => {
     if (m.lastCompletedDate && m.lastCompletedDate !== todayS && m.completedToday) {
@@ -168,7 +184,8 @@ router.post("/:id/toggle", protect, async (req, res) => {
     if (!member) return res.status(403).json({ message: "Not a member" });
 
     const today = getLocalTodayUTC();
-    const todayS = today.toISOString().slice(0, 10);
+    const todayS = getTodayStr();
+    const yesterdayS = getYesterdayStr();
 
     // Reset new-day stale completions first
     resetIfNewDay(habit);
@@ -203,19 +220,16 @@ router.post("/:id/toggle", protect, async (req, res) => {
       });
     }
 
-    // Check if whole team is done → update streak
-    const allDone = habit.members.every((m) => m.completedToday);
-    if (allDone && habit.lastTeamCompletedDate !== today) {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yStr = yesterday.toISOString().slice(0, 10);
-
-      if (habit.lastTeamCompletedDate === yStr) {
+    // Check if whole team is done → update streak (compare strings!)
+    const acceptedMembers = habit.members.filter(m => m.status === "accepted");
+    const allDone = acceptedMembers.length > 0 && acceptedMembers.every((m) => m.completedToday);
+    if (allDone && habit.lastTeamCompletedDate !== todayS) {
+      if (habit.lastTeamCompletedDate === yesterdayS) {
         habit.streak += 1;
       } else {
         habit.streak = 1;
       }
-      habit.lastTeamCompletedDate = today;
+      habit.lastTeamCompletedDate = todayS; // Always store as string!
     }
 
     await habit.save();
