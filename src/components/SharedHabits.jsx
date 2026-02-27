@@ -6,6 +6,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export default function SharedHabits({ currentUser }) {
   const [sharedHabits, setSharedHabits] = useState([]);
+  const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
@@ -13,20 +14,33 @@ export default function SharedHabits({ currentUser }) {
   const token = currentUser?.token || localStorage.getItem("token");
 
   const fetchSharedHabits = useCallback(async () => {
-    setLoading(true);
+    // Only show full loading if we have no data yet
+    if (sharedHabits.length === 0) {
+      setLoading(true);
+    }
     try {
-      const res = await fetch(`${API_BASE}/api/shared-habits`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      setSharedHabits(data);
+      const [habitsRes, invitesRes] = await Promise.all([
+        fetch(`${API_BASE}/api/shared-habits`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_BASE}/api/shared-habits/invitations`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      ]);
+
+      if (!habitsRes.ok || !invitesRes.ok) throw new Error("Failed to fetch");
+
+      const habitsData = await habitsRes.json();
+      const invitesData = await invitesRes.json();
+
+      setSharedHabits(habitsData);
+      setInvitations(invitesData);
     } catch (e) {
       setError("Could not load party habits.");
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, sharedHabits.length]);
 
   useEffect(() => {
     fetchSharedHabits();
@@ -50,7 +64,7 @@ export default function SharedHabits({ currentUser }) {
     fetchSharedHabits();
   };
 
-  const handleToggle = async (habitId) => {
+  const handleToggle = async (habitId, note = "") => {
     // Optimistic update
     setSharedHabits((prev) =>
       prev.map((h) => {
@@ -69,7 +83,11 @@ export default function SharedHabits({ currentUser }) {
     try {
       const res = await fetch(`${API_BASE}/api/shared-habits/${habitId}/toggle`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ note }),
       });
       if (!res.ok) {
         // Revert on failure
@@ -85,6 +103,27 @@ export default function SharedHabits({ currentUser }) {
     }
   };
 
+  const handleUpdateNote = async (habitId, note) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/shared-habits/${habitId}/note`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ note }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setSharedHabits((prev) =>
+          prev.map((h) => (h._id === habitId ? updated : h))
+        );
+      }
+    } catch (e) {
+      console.error("Failed to update note", e);
+    }
+  };
+
   const handleLeave = async (habitId) => {
     if (!window.confirm("Leave this party habit? Your streak progress will be lost.")) return;
     const res = await fetch(`${API_BASE}/api/shared-habits/${habitId}/leave`, {
@@ -93,6 +132,70 @@ export default function SharedHabits({ currentUser }) {
     });
     if (res.ok) {
       setSharedHabits((prev) => prev.filter((h) => h._id !== habitId));
+    }
+  };
+
+  const handleDelete = async (habitId) => {
+    if (!window.confirm("CRITICAL: Delete this entire party group for everyone? This cannot be undone.")) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/shared-habits/${habitId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setSharedHabits((prev) => prev.filter((h) => h._id !== habitId));
+      }
+    } catch (e) {
+      console.error("Failed to delete party", e);
+    }
+  };
+
+  const handleEdit = async (habitId, updates) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/shared-habits/${habitId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(updates),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setSharedHabits((prev) =>
+          prev.map((h) => (h._id === habitId ? updated : h))
+        );
+      }
+    } catch (e) {
+      console.error("Failed to edit habit", e);
+    }
+  };
+
+  const handleAcceptInvite = async (habitId) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/shared-habits/${habitId}/accept`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        fetchSharedHabits();
+      }
+    } catch (e) {
+      console.error("Failed to accept invitation", e);
+    }
+  };
+
+  const handleRejectInvite = async (habitId) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/shared-habits/${habitId}/reject`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        fetchSharedHabits();
+      }
+    } catch (e) {
+      console.error("Failed to reject invitation", e);
     }
   };
 
@@ -118,18 +221,6 @@ export default function SharedHabits({ currentUser }) {
               Team up · Complete together · Streak together
             </p>
           </div>
-          <button
-            onClick={() => setCreating(true)}
-            style={{
-              padding: "0.5rem 1rem",
-              borderRadius: "20px",
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-              border: "none", color: "#fff",
-              fontWeight: 700, fontSize: "0.85rem", cursor: "pointer"
-            }}
-          >
-            + New Party
-          </button>
         </div>
 
         {/* Summary pills */}
@@ -153,12 +244,55 @@ export default function SharedHabits({ currentUser }) {
         )}
       </div>
 
-      {/* Create form */}
-      {creating && (
-        <CreateSharedHabit
-          onSubmit={handleCreate}
-          onCancel={() => setCreating(false)}
-        />
+
+      {/* Invitations Section */}
+      {invitations.length > 0 && (
+        <div style={{ marginBottom: "2rem" }}>
+          <h3 style={{ color: "#e2e8f0", fontWeight: 700, fontSize: "0.9rem", marginBottom: "0.75rem" }}>
+            📫 Pending Invitations ({invitations.length})
+          </h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            {invitations.map((invite) => (
+              <div key={invite._id} style={{
+                background: "rgba(99,102,241,0.1)",
+                border: "1.5px solid rgba(99,102,241,0.3)",
+                borderRadius: "16px",
+                padding: "1rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "1rem"
+              }}>
+                <div style={{ fontSize: "1.5rem" }}>{invite.emoji}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, color: "#e2e8f0", fontSize: "0.95rem" }}>{invite.name}</div>
+                  <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>
+                    From {invite.members.find(m => m.userId === invite.createdBy)?.username || "a friend"}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button
+                    onClick={() => handleAcceptInvite(invite._id)}
+                    style={{
+                      padding: "0.4rem 0.8rem", borderRadius: "10px", background: "#10b981",
+                      color: "#fff", border: "none", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer"
+                    }}
+                  >
+                    Accept
+                  </button>
+                  <button
+                    onClick={() => handleRejectInvite(invite._id)}
+                    style={{
+                      padding: "0.4rem 0.8rem", borderRadius: "10px", background: "rgba(239, 68, 68, 0.2)",
+                      color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.3)", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer"
+                    }}
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Habit list */}
@@ -177,22 +311,10 @@ export default function SharedHabits({ currentUser }) {
           border: "1.5px dashed rgba(99,102,241,0.2)"
         }}>
           <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🤝</div>
-          <p style={{ color: "#a0a0b8", fontWeight: 600, margin: 0 }}>No party habits yet!</p>
+          <p style={{ color: "#a0a0b8", fontWeight: 600, margin: 0 }}>No active party habits!</p>
           <p style={{ color: "#6b7280", fontSize: "0.82rem", marginTop: "0.4rem" }}>
-            Create one and invite your friends to build habits together.
+            Create one in the <b>"+" tab</b> and invite your friends.
           </p>
-          <button
-            onClick={() => setCreating(true)}
-            style={{
-              marginTop: "1rem", padding: "0.6rem 1.4rem",
-              borderRadius: "20px",
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-              border: "none", color: "#fff",
-              fontWeight: 700, fontSize: "0.9rem", cursor: "pointer"
-            }}
-          >
-            Create your first party
-          </button>
         </div>
       ) : (
         activeParties.map((habit) => (
@@ -201,7 +323,10 @@ export default function SharedHabits({ currentUser }) {
             habit={habit}
             currentUser={currentUser}
             onToggle={handleToggle}
+            onUpdateNote={handleUpdateNote}
             onLeave={handleLeave}
+            onDelete={handleDelete}
+            onEdit={handleEdit}
           />
         ))
       )}
