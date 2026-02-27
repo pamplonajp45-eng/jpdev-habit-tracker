@@ -29,6 +29,7 @@ import SharedHabits from "./components/SharedHabits";
 import partyIcon from "./assets/icons/sharedHabits.png";
 import SharedHabitCard from "./components/SharedHabitCard";
 import HabitHistoryLog from "./components/HabitHistoryLog";
+
 export default function App() {
   const {
     user,
@@ -40,7 +41,6 @@ export default function App() {
     logout,
     loading,
   } = useAuth();
-
 
   const [greeting, setGreeting] = useState("");
 
@@ -74,52 +74,47 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [totalUnread, setTotalUnread] = useState(0);
-  const [invitations, setInvitations] = useState([]);
-  const [sharedHabits, setSharedHabits] = useState([]);
+
+  // Nav badge count only — SharedHabits.jsx owns all the real party state
+  const [invitationCount, setInvitationCount] = useState(0);
+
+  // Lightweight data only used in Home > "Shared" category view
+  const [homeInvitations, setHomeInvitations] = useState([]);
+  const [homeSharedHabits, setHomeSharedHabits] = useState([]);
 
   const changeTab = (tab) => {
     setActiveTab(tab);
     setIsChatOpen(false);
   };
 
-  const handleHabitAdd = async (habitData) => {
+  const fetchHomeSharedData = async () => {
     try {
-      const newHabit = await addHabit(habitData);
-      if (newHabit && newHabit.isShared) {
-        setSharedHabits(prev => [...prev, newHabit]);
-      }
-    } catch (error) {
-      console.error("Error adding habit:", error);
+      const [invitesRes, habitsRes] = await Promise.all([
+        api.get("/shared-habits/invitations"),
+        api.get("/shared-habits"),
+      ]);
+      setHomeInvitations(invitesRes.data);
+      setHomeSharedHabits(habitsRes.data);
+      setInvitationCount(invitesRes.data.length);
+    } catch (err) {
+      console.error("Failed to fetch home shared data", err);
     }
   };
 
   useEffect(() => {
     if (user) {
-      const fetchData = async () => {
-        try {
-          const [invitesRes, habitsRes] = await Promise.all([
-            api.get("/shared-habits/invitations"),
-            api.get("/shared-habits")
-          ]);
-
-          setInvitations(invitesRes.data);
-          setSharedHabits(habitsRes.data);
-        } catch (err) { console.error(err); }
-      };
-      fetchData();
-      const interval = setInterval(fetchData, 30000);
+      fetchHomeSharedData();
+      const interval = setInterval(fetchHomeSharedData, 30000);
       return () => clearInterval(interval);
     }
   }, [user]);
 
-  // Register for push notifications when user logs in
   useEffect(() => {
     if (user) {
       registerPush();
     }
   }, [user]);
 
-  // Recalculate progress when habits change
   useEffect(() => {
     const dueToday = habits.filter((h) => h.isDueToday);
     const completed = dueToday.filter((h) => h.completedToday).length;
@@ -129,7 +124,6 @@ export default function App() {
     setProgress(total > 0 ? Math.round((completed / total) * 100) : 0);
   }, [habits]);
 
-  // Play celebration sound when all habits completed
   useEffect(() => {
     if (progress === 100 && habits.length > 0) {
       const audio = new Audio("celebration.mp3");
@@ -148,23 +142,20 @@ export default function App() {
   const handleAcceptInvite = async (id) => {
     try {
       await api.post(`/shared-habits/${id}/accept`);
-      // Refresh both
-      const [invitesRes, habitsRes] = await Promise.all([
-        api.get("/shared-habits/invitations"),
-        api.get("/shared-habits")
-      ]);
-      setInvitations(invitesRes.data);
-      setSharedHabits(habitsRes.data);
-    } catch (err) { console.error(err); }
+      await fetchHomeSharedData();
+    } catch (err) {
+      console.error("Failed to accept invite", err);
+    }
   };
 
   const handleRejectInvite = async (id) => {
     if (!window.confirm("Reject this invitation?")) return;
     try {
       await api.post(`/shared-habits/${id}/reject`);
-      const res = await api.get("/shared-habits/invitations");
-      setInvitations(res.data);
-    } catch (err) { console.error(err); }
+      await fetchHomeSharedData();
+    } catch (err) {
+      console.error("Failed to reject invite", err);
+    }
   };
 
   if (loading) {
@@ -172,7 +163,6 @@ export default function App() {
   }
 
   if (!user) {
-
     return (
       <div className="container">
         <div className="card">
@@ -193,7 +183,6 @@ export default function App() {
                   onForgotPassword={() => setAuthStep("forgot-password")}
                 />
               )}
-
               {authStep === "register" && (
                 <Register
                   onRegistered={(userId, email) => {
@@ -203,7 +192,6 @@ export default function App() {
                   onSwitchToLogin={() => setAuthStep("login")}
                 />
               )}
-
               {authStep === "verify" && tempAuthData && (
                 <VerifyEmail
                   userId={tempAuthData.userId}
@@ -214,7 +202,6 @@ export default function App() {
                   }}
                 />
               )}
-
               {authStep === "forgot-password" && (
                 <ForgotPassword
                   onCodeSent={(email) => {
@@ -224,7 +211,6 @@ export default function App() {
                   onBackToLogin={() => setAuthStep("login")}
                 />
               )}
-
               {authStep === "reset-password" && tempAuthData && (
                 <ResetPassword
                   email={tempAuthData.email}
@@ -254,18 +240,20 @@ export default function App() {
                     {greeting}, <strong>{user.username}</strong>
                   </p>
                 </div>
-                <div className="header-actions" style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={handleLogout} className="logout-pill" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px' }}>
-                    <img src={logoutIcon} alt="Logout" style={{ width: '16px', height: '16px', objectFit: 'contain' }} />
+                <div className="header-actions" style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    onClick={handleLogout}
+                    className="logout-pill"
+                    style={{ display: "flex", alignItems: "center", gap: "6px", padding: "6px 14px" }}
+                  >
+                    <img src={logoutIcon} alt="Logout" style={{ width: "16px", height: "16px", objectFit: "contain" }} />
                     Logout
                   </button>
                 </div>
               </div>
 
               <div className="app-title-container">
-                <h1 className="app-title">
-                  Ha<strong>BITAW</strong>
-                </h1>
+                <h1 className="app-title">Ha<strong>BITAW</strong></h1>
                 <p className="app-subtitle">Bitaw Gusto, Disiplina Ayaw?</p>
               </div>
 
@@ -273,33 +261,21 @@ export default function App() {
                 currentXP={user.xp || 0}
                 maxXP={(user.level || 1) * 100}
                 level={user.level || 1}
-
               />
 
               <div className="progress-summary-card">
                 <div className="progress-info">
                   <h3>Today's Progress</h3>
                   <div className="progress-stats">
-                    <span className="stats-main">
-                      {completedCount} / {totalHabits}
-                    </span>
+                    <span className="stats-main">{completedCount} / {totalHabits}</span>
                     <span className="stats-sub">Habits Done</span>
                   </div>
                 </div>
                 <div className="progress-circle-container">
                   <svg className="progress-circle" viewBox="0 0 36 36">
-                    <path
-                      className="circle-bg"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                    <path
-                      className="circle"
-                      strokeDasharray={`${progress}, 100`}
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                    <text x="18" y="20.35" className="percentage">
-                      {progress}%
-                    </text>
+                    <path className="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path className="circle" strokeDasharray={`${progress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <text x="18" y="20.35" className="percentage">{progress}%</text>
                   </svg>
                 </div>
               </div>
@@ -315,8 +291,11 @@ export default function App() {
               <>
                 <ContributionCalendar history={history} />
 
-                <div className="category-filter-container" style={{ display: "flex", gap: "0.5rem", marginTop: "1.5rem", overflowX: "auto", paddingBottom: "0.5rem" }}>
-                  {["All", "Shared", ...new Set(habits.map(h => h.category).filter(c => c && c !== "general"))].map(cat => (
+                <div
+                  className="category-filter-container"
+                  style={{ display: "flex", gap: "0.5rem", marginTop: "1.5rem", overflowX: "auto", paddingBottom: "0.5rem" }}
+                >
+                  {["All", "Shared", ...new Set(habits.map((h) => h.category).filter((c) => c && c !== "general"))].map((cat) => (
                     <button
                       key={cat}
                       className={`category-pill ${selectedCategory === cat ? "active" : ""}`}
@@ -330,7 +309,7 @@ export default function App() {
                         cursor: "pointer",
                         fontSize: "0.85rem",
                         textTransform: "capitalize",
-                        whiteSpace: "nowrap"
+                        whiteSpace: "nowrap",
                       }}
                     >
                       {cat}
@@ -338,40 +317,57 @@ export default function App() {
                   ))}
                 </div>
 
-                <div
-                  className="habit-list-wrapper"
-                  style={{ marginTop: "1rem" }}
-                >
+                <div className="habit-list-wrapper" style={{ marginTop: "1rem" }}>
                   {selectedCategory === "Shared" ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                      {invitations.length > 0 && (
+                      {homeInvitations.length > 0 && (
                         <div style={{ background: "rgba(99,102,241,0.05)", borderRadius: "16px", padding: "1rem", border: "1px dashed rgba(99,102,241,0.3)", marginBottom: "0.5rem" }}>
                           <p style={{ fontSize: "0.75rem", color: "#6366f1", fontWeight: 800, textTransform: "uppercase", marginBottom: "0.8rem", display: "flex", alignItems: "center", gap: "6px" }}>
-                            📩 Pending Invitations ({invitations.length})
+                            📩 Pending Invitations ({homeInvitations.length})
                           </p>
                           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                            {invitations.map(invite => (
-                              <div key={invite._id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255,255,255,0.03)", padding: "10px 12px", borderRadius: "12px", gap: "12px" }}>
+                            {homeInvitations.map((invite) => (
+                              <div
+                                key={invite._id}
+                                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255,255,255,0.03)", padding: "10px 12px", borderRadius: "12px", gap: "12px" }}
+                              >
                                 <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
                                   <span style={{ fontSize: "1.1rem" }}>{invite.emoji || "🤝"}</span>
                                   <div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
-                                    <span style={{ fontWeight: 700, color: "#e2e8f0", fontSize: "0.85rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{invite.name}</span>
-                                    <span style={{ fontSize: "0.7rem", color: "#64748b" }}>{invite.frequency} • {invite.category}</span>
+                                    <span style={{ fontWeight: 700, color: "#e2e8f0", fontSize: "0.85rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                      {invite.name}
+                                    </span>
+                                    <span style={{ fontSize: "0.7rem", color: "#64748b" }}>
+                                      {invite.frequency} • {invite.category}
+                                    </span>
                                   </div>
                                 </div>
                                 <div style={{ display: "flex", gap: "6px" }}>
-                                  <button onClick={() => handleAcceptInvite(invite._id)} style={{ background: "#6366f1", color: "white", border: "none", borderRadius: "6px", padding: "5px 12px", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>Join</button>
-                                  <button onClick={() => handleRejectInvite(invite._id)} style={{ background: "none", color: "#6b7280", border: "none", cursor: "pointer", fontSize: "0.8rem" }}>✕</button>
+                                  <button
+                                    onClick={() => handleAcceptInvite(invite._id)}
+                                    style={{ background: "#6366f1", color: "white", border: "none", borderRadius: "6px", padding: "5px 12px", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}
+                                  >
+                                    Join
+                                  </button>
+                                  <button
+                                    onClick={() => handleRejectInvite(invite._id)}
+                                    style={{ background: "none", color: "#6b7280", border: "none", cursor: "pointer", fontSize: "0.8rem" }}
+                                  >
+                                    ✕
+                                  </button>
                                 </div>
                               </div>
                             ))}
                           </div>
                         </div>
                       )}
-                      {sharedHabits.length === 0 && invitations.length === 0 ? (
-                        <p style={{ textAlign: "center", color: "#6b7280", padding: "2rem" }}>No active parties. Create one in the "+" tab!</p>
+
+                      {homeSharedHabits.length === 0 && homeInvitations.length === 0 ? (
+                        <p style={{ textAlign: "center", color: "#6b7280", padding: "2rem" }}>
+                          No active parties. Create one in the "+" tab!
+                        </p>
                       ) : (
-                        sharedHabits.map(h => (
+                        homeSharedHabits.map((h) => (
                           <SharedHabitCard
                             key={h._id}
                             habit={h}
@@ -379,24 +375,29 @@ export default function App() {
                             onToggle={async (id, note) => {
                               try {
                                 await api.post(`/shared-habits/${id}/toggle`, { note });
-                                // Refresh
                                 const res = await api.get("/shared-habits");
-                                setSharedHabits(res.data);
-                              } catch (err) { console.error(err); }
+                                setHomeSharedHabits(res.data);
+                              } catch (err) {
+                                console.error(err);
+                              }
                             }}
                             onUpdateNote={async (id, note) => {
                               try {
                                 const res = await api.put(`/shared-habits/${id}/note`, { note });
-                                setSharedHabits((prev) => prev.map(h => h._id === id ? res.data : h));
-                              } catch (err) { console.error(err); }
+                                setHomeSharedHabits((prev) => prev.map((h) => (h._id === id ? res.data : h)));
+                              } catch (err) {
+                                console.error(err);
+                              }
                             }}
-                            onLeave={null} // Disable leave from home home for safety?
+                            onLeave={null}
                             onDelete={async (id) => {
                               if (!window.confirm("CRITICAL: Delete this entire party group for everyone? This cannot be undone.")) return;
                               try {
                                 await api.delete(`/shared-habits/${id}`);
-                                setSharedHabits((prev) => prev.filter((h) => h._id !== id));
-                              } catch (err) { console.error(err); }
+                                setHomeSharedHabits((prev) => prev.filter((h) => h._id !== id));
+                              } catch (err) {
+                                console.error(err);
+                              }
                             }}
                           />
                         ))
@@ -405,7 +406,7 @@ export default function App() {
                   ) : (
                     <>
                       <HabitList
-                        habits={selectedCategory === "All" ? habits : habits.filter(h => h.category === selectedCategory)}
+                        habits={selectedCategory === "All" ? habits : habits.filter((h) => h.category === selectedCategory)}
                         onToggle={toggleHabit}
                         updateHabitNote={updateHabitNote}
                         onDelete={deleteHabit}
@@ -438,7 +439,7 @@ export default function App() {
                         emoji: data.emoji,
                         category: data.category,
                         frequency: data.frequency,
-                        invitedUsernames: data.invitees
+                        invitedUsernames: data.invitees,
                       });
                       alert("Party habit created successfully! Invitations sent.");
                       setActiveTab("party");
@@ -448,10 +449,7 @@ export default function App() {
                     }
                   }}
                 />
-                <button
-                  className="cancel-btn"
-                  onClick={() => setActiveTab("home")}
-                >
+                <button className="cancel-btn" onClick={() => setActiveTab("home")}>
                   Cancel
                 </button>
               </div>
@@ -463,96 +461,84 @@ export default function App() {
                 <HabitHistoryLog habits={habits} history={history} />
               </div>
             )}
+
             {activeTab === "leaderboard" && <Leaderboard />}
             {activeTab === "badges" && <BadgeCollection user={user} />}
-            {activeTab === "party" && <SharedHabits currentUser={user} />}
 
+            {/* SharedHabits fully manages its own state. We pass a callback so
+                the nav badge count stays in sync when invitations change. */}
+            {activeTab === "party" && (
+              <SharedHabits
+                currentUser={user}
+                key="shared-habits-panel"
+                onInvitationCountChange={setInvitationCount}
+              />
+            )}
 
             <div className="bottom-nav">
-              <button
-                className={activeTab === "home" ? "active" : ""}
-                onClick={() => changeTab("home")}
-              >
+              <button className={activeTab === "home" ? "active" : ""} onClick={() => changeTab("home")}>
                 <img src={homeIcon} alt="Home" className="nav-icon" />
               </button>
-              <button
-                className={activeTab === "goals" ? "active" : ""}
-                onClick={() => changeTab("goals")}
-              >
+              <button className={activeTab === "goals" ? "active" : ""} onClick={() => changeTab("goals")}>
                 <img src={goalsIcon} alt="Goals" className="nav-icon" />
               </button>
-
-              <button
-                className={activeTab === "add" ? "active" : ""}
-                onClick={() => changeTab("add")}
-              >
+              <button className={activeTab === "add" ? "active" : ""} onClick={() => changeTab("add")}>
                 <img src={addIcon} alt="Add" className="nav-icon" />
               </button>
-
               <button
                 className={isChatOpen ? "active" : ""}
                 onClick={() => setIsChatOpen(!isChatOpen)}
-                style={{ position: 'relative' }}
+                style={{ position: "relative" }}
               >
                 <img src={chatIcon} alt="Messages" className="nav-icon" />
                 {totalUnread > 0 && (
-                  <span className="unread-pulse-badge" style={{
-                    position: 'absolute',
-                    top: '-6px',
-                    right: '12px',
-                    background: '#ef4444',
-                    color: 'white',
-                    borderRadius: '12px',
-                    padding: '2px 6px',
-                    fontSize: '9px',
-                    fontWeight: '900',
-                    boxShadow: '0 0 10px rgba(239, 68, 68, 0.7)',
-                    border: '1.5px solid #1a1a2e',
-                    animation: 'badgePulse 1.5s infinite'
-                  }}>
+                  <span
+                    className="unread-pulse-badge"
+                    style={{
+                      position: "absolute", top: "-6px", right: "12px",
+                      background: "#ef4444", color: "white", borderRadius: "12px",
+                      padding: "2px 6px", fontSize: "9px", fontWeight: "900",
+                      boxShadow: "0 0 10px rgba(239, 68, 68, 0.7)",
+                      border: "1.5px solid #1a1a2e", animation: "badgePulse 1.5s infinite",
+                    }}
+                  >
                     {totalUnread}
                   </span>
                 )}
               </button>
-
-              <button
-                className={activeTab === "leaderboard" ? "active" : ""}
-                onClick={() => changeTab("leaderboard")}
-              >
+              <button className={activeTab === "leaderboard" ? "active" : ""} onClick={() => changeTab("leaderboard")}>
                 <img src={rankIcon} alt="Rank" className="nav-icon" />
               </button>
-
-              <button
-                className={activeTab === "badges" ? "active" : ""}
-                onClick={() => changeTab("badges")}
-              >
+              <button className={activeTab === "badges" ? "active" : ""} onClick={() => changeTab("badges")}>
                 <img src={achievementsIcon} alt="Achievements" className="nav-icon" />
               </button>
-
               <button
                 className={activeTab === "party" ? "active" : ""}
                 onClick={() => changeTab("party")}
-                style={{ position: 'relative' }}
+                style={{ position: "relative" }}
               >
                 <img src={partyIcon} alt="Party" className="nav-icon" />
-                {invitations.length > 0 && (
-                  <span className="unread-pulse-badge" style={{
-                    position: 'absolute', top: '-6px', right: '12px', background: '#6366f1', color: 'white',
-                    borderRadius: '12px', padding: '2px 6px', fontSize: '9px', fontWeight: '900',
-                    boxShadow: '0 0 10px rgba(99, 102, 241, 0.7)', border: '1.5px solid #1a1a2e'
-                  }}>
-                    {invitations.length}
+                {invitationCount > 0 && (
+                  <span
+                    style={{
+                      position: "absolute", top: "-6px", right: "12px",
+                      background: "#6366f1", color: "white", borderRadius: "12px",
+                      padding: "2px 6px", fontSize: "9px", fontWeight: "900",
+                      boxShadow: "0 0 10px rgba(99, 102, 241, 0.7)",
+                      border: "1.5px solid #1a1a2e",
+                    }}
+                  >
+                    {invitationCount}
                   </span>
                 )}
               </button>
-
             </div>
           </div>
         </div>
       </div>
-      {newBadge && (
-        <BadgePopup badge={newBadge} onClose={() => setNewBadge(null)} />
-      )}
+
+      {newBadge && <BadgePopup badge={newBadge} onClose={() => setNewBadge(null)} />}
+
       <ChatSystem
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}

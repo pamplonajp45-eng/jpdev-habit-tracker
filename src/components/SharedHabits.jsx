@@ -3,7 +3,7 @@ import SharedHabitCard from "./SharedHabitCard";
 import CreateSharedHabit from "./CreateSharedHabit";
 import api from "../utils/api";
 
-export default function SharedHabits({ currentUser }) {
+export default function SharedHabits({ currentUser, onInvitationCountChange }) {
   const [sharedHabits, setSharedHabits] = useState([]);
   const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +21,7 @@ export default function SharedHabits({ currentUser }) {
       ]);
       setSharedHabits(habitsRes.data);
       setInvitations(invitesRes.data);
+      if (onInvitationCountChange) onInvitationCountChange(invitesRes.data.length);
     } catch (e) {
       setError("Could not load party habits.");
     } finally {
