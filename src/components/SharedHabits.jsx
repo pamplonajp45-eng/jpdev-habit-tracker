@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import SharedHabitCard from "./SharedHabitCard";
 import CreateSharedHabit from "./CreateSharedHabit";
 import api from "../utils/api";
@@ -9,8 +9,10 @@ export default function SharedHabits({ currentUser }) {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const togglingRef = useRef(false);
 
   const fetchSharedHabits = useCallback(async (silent = false) => {
+    if (silent && togglingRef.current) return; // don't overwrite mid-toggle
     if (!silent) setLoading(true);
     try {
       const [habitsRes, invitesRes] = await Promise.all([
@@ -28,7 +30,7 @@ export default function SharedHabits({ currentUser }) {
 
   useEffect(() => {
     fetchSharedHabits();
-    // Poll every 30s to show teammates' real-time progress (Sillently)
+    // Poll every 30s to show teammates' real-time progress (silently)
     const interval = setInterval(() => fetchSharedHabits(true), 30000);
     return () => clearInterval(interval);
   }, [fetchSharedHabits]);
@@ -50,6 +52,8 @@ export default function SharedHabits({ currentUser }) {
   };
 
   const handleToggle = async (habitId, note) => {
+    togglingRef.current = true;
+
     // Optimistic update
     setSharedHabits((prev) =>
       prev.map((h) => {
@@ -57,7 +61,7 @@ export default function SharedHabits({ currentUser }) {
         return {
           ...h,
           members: h.members.map((m) =>
-            m.userId === currentUser._id
+            String(m.userId) === String(currentUser._id)
               ? { ...m, completedToday: !m.completedToday }
               : m
           ),
@@ -73,6 +77,8 @@ export default function SharedHabits({ currentUser }) {
       );
     } catch {
       fetchSharedHabits();
+    } finally {
+      togglingRef.current = false;
     }
   };
 
@@ -128,9 +134,12 @@ export default function SharedHabits({ currentUser }) {
     }
   };
 
+  // FIX: Use String() comparison to avoid ObjectId vs string mismatch
   const activeParties = sharedHabits.filter((h) => {
-    const me = h.members?.find((m) => m.userId === currentUser._id);
-    return me;
+    const me = h.members?.find(
+      (m) => String(m.userId) === String(currentUser._id)
+    );
+    return !!me;
   });
 
   const allDoneCount = activeParties.filter(
