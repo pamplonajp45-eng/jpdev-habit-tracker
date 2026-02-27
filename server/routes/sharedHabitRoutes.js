@@ -1,26 +1,19 @@
 // routes/sharedHabits.js
-// Mount in your Express app as: app.use("/api/shared-habits", require("./routes/sharedHabits"));
-// Requires mongoose models: SharedHabit (below) and your existing User model.
-
 const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
-const { protect } = require("../middleware/authMiddleware"); // your existing JWT middleware
-const User = require("../models/User"); // your existing User model
+const { protect } = require("../middleware/authMiddleware");
+const User = require("../models/User");
 const HabitHistory = require("../models/HabitHistory");
+const SharedHabit = require("../models/SharedHabit");
 
-// Helper to get local "today" in UTC (Adjusted for Asia/Manila)
 const getLocalTodayUTC = () => {
   const now = new Date();
   const phTimeString = now.toLocaleString("en-US", { timeZone: "Asia/Manila" });
   const localNow = new Date(phTimeString);
   return new Date(Date.UTC(localNow.getFullYear(), localNow.getMonth(), localNow.getDate()));
 };
-const SharedHabit = require("../models/SharedHabit");
 
-// ─────────────────────────────────────────────────
-// Helper: today's date string (Manila timezone)
-// ─────────────────────────────────────────────────
 function getTodayStr() {
   const now = new Date();
   const phTimeString = now.toLocaleString("en-US", { timeZone: "Asia/Manila" });
@@ -42,9 +35,6 @@ function getYesterdayStr() {
   return `${y}-${m}-${d}`;
 }
 
-// ─────────────────────────────────────────────────
-// Helper: reset completedToday if it's a new day
-// ─────────────────────────────────────────────────
 function resetIfNewDay(habit) {
   const todayS = getTodayStr();
   let changed = false;
@@ -57,9 +47,7 @@ function resetIfNewDay(habit) {
   return changed;
 }
 
-// ─────────────────────────────────────────────────
-// GET /api/shared-habits  — list habits for current user (where status is accepted)
-// ─────────────────────────────────────────────────
+// GET /api/shared-habits
 router.get("/", protect, async (req, res) => {
   try {
     const habits = await SharedHabit.find({
@@ -71,7 +59,6 @@ router.get("/", protect, async (req, res) => {
       }
     });
 
-    // Reset stale completions (new day)
     const saves = [];
     for (const h of habits) {
       if (resetIfNewDay(h)) saves.push(h.save());
@@ -80,13 +67,12 @@ router.get("/", protect, async (req, res) => {
 
     res.json(habits);
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error("GET /shared-habits error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
-// ─────────────────────────────────────────────────
-// GET /api/shared-habits/invitations — list pending invitations
-// ─────────────────────────────────────────────────
+// GET /api/shared-habits/invitations
 router.get("/invitations", protect, async (req, res) => {
   try {
     const invitations = await SharedHabit.find({
@@ -99,79 +85,75 @@ router.get("/invitations", protect, async (req, res) => {
     });
     res.json(invitations);
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error("GET /shared-habits/invitations error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
-// ─────────────────────────────────────────────────
-// POST /api/shared-habits  — create a new party habit
-// Body: { name, emoji, invitedUsernames: string[] }
-// ─────────────────────────────────────────────────
+// POST /api/shared-habits
 router.post("/", protect, async (req, res) => {
-  const { name, emoji, category, frequency, invitedUsernames } = req.body;
+  try {
+    const { name, emoji, category, frequency, invitedUsernames } = req.body;
 
-  if (!name || !invitedUsernames?.length) {
-    return res.status(400).json({ message: "Name and at least one invitee required." });
-  }
+    if (!name || !invitedUsernames?.length) {
+      return res.status(400).json({ message: "Name and at least one invitee required." });
+    }
 
-  // Fetch the current user and their friends list
-  const creator = await User.findById(req.user._id);
+    const creator = await User.findById(req.user._id);
 
-  // Look up invited users (case-insensitive)
-  const invitedUsers = await User.find({
-    username: {
-      $in: invitedUsernames.map((u) => {
-        const escaped = u.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        return new RegExp(`^${escaped}$`, "i");
-      })
-    },
-  });
-
-  const notFound = invitedUsernames.filter(
-    (u) => !invitedUsers.find((iu) => iu.username.toLowerCase() === u.trim().toLowerCase())
-  );
-  if (notFound.length > 0) {
-    return res.status(404).json({ message: `Users not found: ${notFound.join(", ")}` });
-  }
-
-  // 🛡️ Restriction: Check if all invited users are actually friends
-  const friendIds = creator.friends.map(id => id.toString());
-  const notFriends = invitedUsers.filter(u => !friendIds.includes(u._id.toString()));
-
-  if (notFriends.length > 0) {
-    return res.status(403).json({
-      message: `You can only invite users from your friend list. Not friends: ${notFriends.map(u => u.username).join(", ")}`
+    const invitedUsers = await User.find({
+      username: {
+        $in: invitedUsernames.map((u) => {
+          const escaped = u.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          return new RegExp(`^${escaped}$`, "i");
+        })
+      },
     });
+
+    const notFound = invitedUsernames.filter(
+      (u) => !invitedUsers.find((iu) => iu.username.toLowerCase() === u.trim().toLowerCase())
+    );
+    if (notFound.length > 0) {
+      return res.status(404).json({ message: `Users not found: ${notFound.join(", ")}` });
+    }
+
+    const friendIds = creator.friends.map(id => id.toString());
+    const notFriends = invitedUsers.filter(u => !friendIds.includes(u._id.toString()));
+
+    if (notFriends.length > 0) {
+      return res.status(403).json({
+        message: `You can only invite users from your friend list. Not friends: ${notFriends.map(u => u.username).join(", ")}`
+      });
+    }
+
+    const members = [
+      { userId: creator._id, username: creator.username, completedToday: false, status: "accepted" },
+      ...invitedUsers.map((u) => ({
+        userId: u._id,
+        username: u.username,
+        completedToday: false,
+        status: "pending"
+      })),
+    ];
+
+    const habit = new SharedHabit({
+      name,
+      emoji: emoji || "🤝",
+      category: category || "general",
+      frequency: frequency || "daily",
+      createdBy: creator._id,
+      members,
+    });
+
+    await habit.save();
+    res.status(201).json(habit);
+  } catch (err) {
+    console.error("POST /shared-habits error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
-
-  // Map members with appropriate statuses
-  // Creator is "accepted", invitees are "pending"
-  const members = [
-    { userId: creator._id, username: creator.username, completedToday: false, status: "accepted" },
-    ...invitedUsers.map((u) => ({
-      userId: u._id,
-      username: u.username,
-      completedToday: false,
-      status: "pending"
-    })),
-  ];
-
-  const habit = new SharedHabit({
-    name,
-    emoji: emoji || "🤝",
-    category: category || "general",
-    frequency: frequency || "daily",
-    createdBy: creator._id,
-    members,
-  });
-
-  await habit.save();
-  res.status(201).json(habit);
 });
 
-// ─────────────────────────────────────────────────
-// POST /api/shared-habits/:id/toggle  — mark/unmark self complete
-// ─────────────────────────────────────────────────
+// POST /api/shared-habits/:id/toggle
 router.post("/:id/toggle", protect, async (req, res) => {
   try {
     const { note } = req.body;
@@ -187,40 +169,46 @@ router.post("/:id/toggle", protect, async (req, res) => {
     const todayS = getTodayStr();
     const yesterdayS = getYesterdayStr();
 
-    // Reset new-day stale completions first
     resetIfNewDay(habit);
 
-    // Toggle
     member.completedToday = !member.completedToday;
+
     if (member.completedToday) {
       member.lastCompletedDate = todayS;
       member.note = note || "";
 
-      // Add to HabitHistory for historical logging
-      await HabitHistory.findOneAndUpdate(
-        { userId: req.user._id, habitId: habit._id, date: today },
-        {
+      // FIX: Check if HabitHistory model exists before using it
+      // This is wrapped separately so a history error doesn't kill the whole toggle
+      try {
+        await HabitHistory.findOneAndUpdate(
+          { userId: req.user._id, habitId: habit._id, date: today },
+          {
+            userId: req.user._id,
+            habitId: habit._id,
+            habitName: habit.name,
+            habitType: "shared",
+            date: today,
+            status: "completed",
+            note: note || ""
+          },
+          { upsert: true }
+        );
+      } catch (histErr) {
+        console.error("HabitHistory upsert failed (non-fatal):", histErr.message);
+      }
+    } else {
+      member.note = "";
+      try {
+        await HabitHistory.deleteOne({
           userId: req.user._id,
           habitId: habit._id,
-          habitName: habit.name,
-          habitType: "shared",
-          date: today,
-          status: "completed",
-          note: note || ""
-        },
-        { upsert: true }
-      );
-    } else {
-      member.note = ""; // Clear note when unchecking
-      // Remove from HabitHistory
-      await HabitHistory.deleteOne({
-        userId: req.user._id,
-        habitId: habit._id,
-        date: today
-      });
+          date: today
+        });
+      } catch (histErr) {
+        console.error("HabitHistory delete failed (non-fatal):", histErr.message);
+      }
     }
 
-    // Check if whole team is done → update streak (compare strings!)
     const acceptedMembers = habit.members.filter(m => m.status === "accepted");
     const allDone = acceptedMembers.length > 0 && acceptedMembers.every((m) => m.completedToday);
     if (allDone && habit.lastTeamCompletedDate !== todayS) {
@@ -229,13 +217,15 @@ router.post("/:id/toggle", protect, async (req, res) => {
       } else {
         habit.streak = 1;
       }
-      habit.lastTeamCompletedDate = todayS; // Always store as string!
+      habit.lastTeamCompletedDate = todayS;
     }
 
     await habit.save();
     res.json(habit);
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    // Now we can actually see what's crashing
+    console.error("POST /shared-habits/:id/toggle error:", err);
+    res.status(500).json({ message: "Server error", error: err.message, stack: err.stack });
   }
 });
 
@@ -251,20 +241,24 @@ router.put("/:id/note", protect, async (req, res) => {
     member.note = note || "";
     await habit.save();
 
-    // Update history note too
-    const today = getLocalTodayUTC();
-    await HabitHistory.findOneAndUpdate(
-      { userId: req.user._id, habitId: habit._id, date: today },
-      { note: note || "" }
-    );
+    try {
+      const today = getLocalTodayUTC();
+      await HabitHistory.findOneAndUpdate(
+        { userId: req.user._id, habitId: habit._id, date: today },
+        { note: note || "" }
+      );
+    } catch (histErr) {
+      console.error("HabitHistory note update failed (non-fatal):", histErr.message);
+    }
 
     res.json(habit);
-  } catch (err) { res.status(500).json({ message: "Server error" }); }
+  } catch (err) {
+    console.error("PUT /shared-habits/:id/note error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
 });
 
-// ─────────────────────────────────────────────────
-// POST /api/shared-habits/:id/leave  — leave a party
-// ─────────────────────────────────────────────────
+// POST /api/shared-habits/:id/leave
 router.post("/:id/leave", protect, async (req, res) => {
   try {
     const habit = await SharedHabit.findById(req.params.id);
@@ -274,7 +268,6 @@ router.post("/:id/leave", protect, async (req, res) => {
       (m) => m.userId.toString() !== req.user._id.toString()
     );
 
-    // If no members left, delete the habit entirely
     if (habit.members.length === 0) {
       await SharedHabit.deleteOne({ _id: habit._id });
       return res.json({ message: "Party disbanded — no members left." });
@@ -283,13 +276,12 @@ router.post("/:id/leave", protect, async (req, res) => {
     await habit.save();
     res.json({ message: "Left party successfully." });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error("POST /shared-habits/:id/leave error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
-// ─────────────────────────────────────────────────
-// PUT /api/shared-habits/:id  — creator updates name/emoji
-// ─────────────────────────────────────────────────
+// PUT /api/shared-habits/:id
 router.put("/:id", protect, async (req, res) => {
   try {
     const { name, emoji } = req.body;
@@ -306,23 +298,22 @@ router.put("/:id", protect, async (req, res) => {
 
     await habit.save();
 
-    // If name changed, update HabitHistory for this habitId
     if (name && name !== oldName) {
-      await HabitHistory.updateMany(
-        { habitId: habit._id },
-        { habitName: name }
-      );
+      try {
+        await HabitHistory.updateMany({ habitId: habit._id }, { habitName: name });
+      } catch (histErr) {
+        console.error("HabitHistory name update failed (non-fatal):", histErr.message);
+      }
     }
 
     res.json(habit);
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error("PUT /shared-habits/:id error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
-// ─────────────────────────────────────────────────
-// DELETE /api/shared-habits/:id  — creator deletes
-// ─────────────────────────────────────────────────
+// DELETE /api/shared-habits/:id
 router.delete("/:id", protect, async (req, res) => {
   try {
     const habit = await SharedHabit.findById(req.params.id);
@@ -332,14 +323,13 @@ router.delete("/:id", protect, async (req, res) => {
     }
     await SharedHabit.deleteOne({ _id: habit._id });
     res.json({ message: "Deleted." });
-  } catch {
-    res.status(500).json({ message: "Server error" });
+  } catch (err) {
+    console.error("DELETE /shared-habits/:id error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
-// ─────────────────────────────────────────────────
-// POST /api/shared-habits/:id/accept — accept an invitation
-// ─────────────────────────────────────────────────
+// POST /api/shared-habits/:id/accept
 router.post("/:id/accept", protect, async (req, res) => {
   try {
     const habit = await SharedHabit.findById(req.params.id);
@@ -354,13 +344,12 @@ router.post("/:id/accept", protect, async (req, res) => {
     await habit.save();
     res.json(habit);
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error("POST /shared-habits/:id/accept error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
-// ─────────────────────────────────────────────────
-// POST /api/shared-habits/:id/reject — reject an invitation
-// ─────────────────────────────────────────────────
+// POST /api/shared-habits/:id/reject
 router.post("/:id/reject", protect, async (req, res) => {
   try {
     const habit = await SharedHabit.findById(req.params.id);
@@ -370,7 +359,6 @@ router.post("/:id/reject", protect, async (req, res) => {
       (m) => m.userId.toString() !== req.user._id.toString()
     );
 
-    // If no members left (including accepted ones), delete
     if (habit.members.length === 0) {
       await SharedHabit.deleteOne({ _id: habit._id });
       return res.json({ message: "Invitation rejected and party disbanded." });
@@ -379,7 +367,8 @@ router.post("/:id/reject", protect, async (req, res) => {
     await habit.save();
     res.json({ message: "Invitation rejected." });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error("POST /shared-habits/:id/reject error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
