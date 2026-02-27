@@ -9,22 +9,22 @@ export default function SharedHabits({ currentUser }) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
-  const fetchSharedHabits = useCallback(async () => {
-    setLoading(true);
+  const fetchSharedHabits = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await api.get("/shared-habits");
       setSharedHabits(res.data);
     } catch (e) {
       setError("Could not load party habits.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     fetchSharedHabits();
-    // Poll every 30s to show teammates' real-time progress
-    const interval = setInterval(fetchSharedHabits, 30000);
+    // Poll every 30s to show teammates' real-time progress (Sillently)
+    const interval = setInterval(() => fetchSharedHabits(true), 30000);
     return () => clearInterval(interval);
   }, [fetchSharedHabits]);
 
@@ -72,10 +72,32 @@ export default function SharedHabits({ currentUser }) {
   const handleLeave = async (habitId) => {
     if (!window.confirm("Leave this party habit? Your streak progress will be lost.")) return;
     try {
-      const res = await api.post(`/shared-habits/${habitId}/leave`);
+      await api.post(`/shared-habits/${habitId}/leave`);
       setSharedHabits((prev) => prev.filter((h) => h._id !== habitId));
     } catch (err) {
       console.error("Failed to leave party habit", err);
+    }
+  };
+
+  const handleDelete = async (habitId) => {
+    if (!window.confirm("Permanently delete this party group? All progress for all members will be lost.")) return;
+    try {
+      await api.delete(`/shared-habits/${habitId}`);
+      setSharedHabits((prev) => prev.filter((h) => h._id !== habitId));
+    } catch (err) {
+      console.error("Failed to delete party group", err);
+      alert("Failed to delete party group");
+    }
+  };
+
+  const handleUpdateNote = async (habitId, note) => {
+    try {
+      const res = await api.put(`/shared-habits/${habitId}/note`, { note });
+      setSharedHabits((prev) =>
+        prev.map((h) => (h._id === habitId ? res.data : h))
+      );
+    } catch (err) {
+      console.error("Failed to update note", err);
     }
   };
 
@@ -185,6 +207,8 @@ export default function SharedHabits({ currentUser }) {
             currentUser={currentUser}
             onToggle={handleToggle}
             onLeave={handleLeave}
+            onDelete={handleDelete}
+            onUpdateNote={handleUpdateNote}
           />
         ))
       )}

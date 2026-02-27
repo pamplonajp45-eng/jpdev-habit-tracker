@@ -19,6 +19,7 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(habit.name);
   const [editEmoji, setEditEmoji] = useState(habit.emoji || "🤝");
+  const [isSavingNote, setIsSavingNote] = useState(false);
 
   const members = habit.members || [];
   const totalMembers = members.length;
@@ -55,6 +56,17 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
       setIsEditing(false);
     } catch (err) {
       alert("Failed to save changes");
+    }
+  };
+
+  const handleSaveNote = async () => {
+    setIsSavingNote(true);
+    try {
+      await onUpdateNote(habit._id, noteText);
+    } catch (err) {
+      alert("Failed to save note");
+    } finally {
+      setIsSavingNote(false);
     }
   };
 
@@ -222,10 +234,36 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
       </div>
 
       {iDone && (
-        <div style={{ marginTop: "1rem" }}>
-          <label style={{ fontSize: "0.75rem", color: "#6366f1", fontWeight: 700, marginBottom: "0.4rem", display: "block" }}>
-            Your Daily Note
-          </label>
+        <div style={{
+          marginTop: "1rem",
+          background: "rgba(99,102,241,0.05)",
+          padding: "1rem",
+          borderRadius: "12px",
+          border: "1px solid rgba(99,102,241,0.15)"
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
+            <label style={{ fontSize: "0.75rem", color: "#6366f1", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Your Daily Note
+            </label>
+            <button
+              onClick={handleSaveNote}
+              disabled={isSavingNote}
+              style={{
+                background: "linear-gradient(135deg, #6366f1, #818cf8)",
+                color: "#fff",
+                border: "none",
+                borderRadius: "6px",
+                padding: "4px 12px",
+                fontSize: "0.7rem",
+                fontWeight: 700,
+                cursor: "pointer",
+                opacity: isSavingNote ? 0.6 : 1,
+                boxShadow: "0 2px 6px rgba(99,102,241,0.3)"
+              }}
+            >
+              {isSavingNote ? "Saving..." : "Save Note"}
+            </button>
+          </div>
           <textarea
             ref={textareaRef}
             placeholder="What did you do today?..."
@@ -239,23 +277,24 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
             onBlur={() => onUpdateNote(habit._id, noteText)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
-                onUpdateNote(habit._id, noteText);
+                handleSaveNote();
                 e.target.blur();
               }
             }}
             rows={1}
             style={{
               width: "100%",
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(99,102,241,0.25)",
-              borderRadius: "10px",
-              padding: "8px 12px",
-              fontSize: "0.8rem",
+              background: "rgba(30,30,46,0.5)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: "8px",
+              padding: "10px 12px",
+              fontSize: "0.85rem",
               color: "#e2e8f0",
               outline: "none",
-              resize: "none",        // disables manual resize handle
-              overflow: "hidden",    // hides scrollbar while auto-resizing
+              resize: "none",
+              overflow: "hidden",
               lineHeight: "1.5",
+              boxSizing: "border-box"
             }}
           />
         </div>
