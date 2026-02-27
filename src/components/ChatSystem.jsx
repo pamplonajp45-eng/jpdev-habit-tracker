@@ -769,7 +769,7 @@ const styles = {
         outline: "none",
         boxSizing: "border-box",
     },
-    friendList: { flex: 1, overflowY: "auto" },
+    friendList: { flex: 1, overflowY: "auto", paddingBottom: 90 },
     friendItem: {
         display: "flex",
         alignItems: "center",
@@ -875,7 +875,7 @@ const styles = {
         display: "flex",
         alignItems: "center",
         gap: 10,
-        padding: "16px",
+        padding: "16px 16px 90px 16px",
         borderTop: "1px solid rgba(255,255,255,0.06)",
         background: "#0f1117",
     },

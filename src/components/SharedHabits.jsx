@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import SharedHabitCard from "./SharedHabitCard";
 import CreateSharedHabit from "./CreateSharedHabit";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+import api from "../utils/api";
 
 export default function SharedHabits({ currentUser }) {
   const [sharedHabits, setSharedHabits] = useState([]);
@@ -10,23 +9,17 @@ export default function SharedHabits({ currentUser }) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
-  const token = currentUser?.token || localStorage.getItem("token");
-
   const fetchSharedHabits = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/shared-habits`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      setSharedHabits(data);
+      const res = await api.get("/shared-habits");
+      setSharedHabits(res.data);
     } catch (e) {
       setError("Could not load party habits.");
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     fetchSharedHabits();
@@ -36,21 +29,20 @@ export default function SharedHabits({ currentUser }) {
   }, [fetchSharedHabits]);
 
   const handleCreate = async ({ name, emoji, invitees }) => {
-    const res = await fetch(`${API_BASE}/api/shared-habits`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ name, emoji, invitedUsernames: invitees }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Failed to create");
-    setCreating(false);
-    fetchSharedHabits();
+    try {
+      const res = await api.post("/shared-habits", {
+        name,
+        emoji,
+        invitedUsernames: invitees,
+      });
+      setCreating(false);
+      fetchSharedHabits();
+    } catch (e) {
+      throw new Error(e.response?.data?.message || "Failed to create");
+    }
   };
 
-  const handleToggle = async (habitId) => {
+  const handleToggle = async (habitId, note) => {
     // Optimistic update
     setSharedHabits((prev) =>
       prev.map((h) => {
@@ -67,19 +59,11 @@ export default function SharedHabits({ currentUser }) {
     );
 
     try {
-      const res = await fetch(`${API_BASE}/api/shared-habits/${habitId}/toggle`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        // Revert on failure
-        fetchSharedHabits();
-      } else {
-        const updated = await res.json();
-        setSharedHabits((prev) =>
-          prev.map((h) => (h._id === habitId ? updated : h))
-        );
-      }
+      const res = await api.post(`/shared-habits/${habitId}/toggle`, { note });
+      const updated = res.data;
+      setSharedHabits((prev) =>
+        prev.map((h) => (h._id === habitId ? updated : h))
+      );
     } catch {
       fetchSharedHabits();
     }
@@ -87,12 +71,11 @@ export default function SharedHabits({ currentUser }) {
 
   const handleLeave = async (habitId) => {
     if (!window.confirm("Leave this party habit? Your streak progress will be lost.")) return;
-    const res = await fetch(`${API_BASE}/api/shared-habits/${habitId}/leave`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) {
+    try {
+      const res = await api.post(`/shared-habits/${habitId}/leave`);
       setSharedHabits((prev) => prev.filter((h) => h._id !== habitId));
+    } catch (err) {
+      console.error("Failed to leave party habit", err);
     }
   };
 

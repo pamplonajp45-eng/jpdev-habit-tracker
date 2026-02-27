@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import api from "./utils/api";
 import HabitInput from "./components/HabitInput";
 import HabitList from "./components/HabitList";
 import ContributionCalendar from "./components/ContributionCalendar";
@@ -76,28 +77,33 @@ export default function App() {
   const [invitations, setInvitations] = useState([]);
   const [sharedHabits, setSharedHabits] = useState([]);
 
+  const changeTab = (tab) => {
+    setActiveTab(tab);
+    setIsChatOpen(false);
+  };
+
+  const handleHabitAdd = async (habitData) => {
+    try {
+      const newHabit = await addHabit(habitData);
+      if (newHabit && newHabit.isShared) {
+        setSharedHabits(prev => [...prev, newHabit]);
+      }
+    } catch (error) {
+      console.error("Error adding habit:", error);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       const fetchData = async () => {
-        const token = user.token || localStorage.getItem("token");
         try {
           const [invitesRes, habitsRes] = await Promise.all([
-            fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/shared-habits/invitations`, {
-              headers: { Authorization: `Bearer ${token}` },
-            }),
-            fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/shared-habits`, {
-              headers: { Authorization: `Bearer ${token}` },
-            })
+            api.get("/shared-habits/invitations"),
+            api.get("/shared-habits")
           ]);
 
-          if (invitesRes.ok) {
-            const data = await invitesRes.json();
-            setInvitations(data);
-          }
-          if (habitsRes.ok) {
-            const data = await habitsRes.json();
-            setSharedHabits(data);
-          }
+          setInvitations(invitesRes.data);
+          setSharedHabits(habitsRes.data);
         } catch (err) { console.error(err); }
       };
       fetchData();
@@ -325,48 +331,26 @@ export default function App() {
                             habit={h}
                             currentUser={user}
                             onToggle={async (id, note) => {
-                              const token = user.token || localStorage.getItem("token");
-                              await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/shared-habits/${id}/toggle`, {
-                                method: "POST",
-                                headers: {
-                                  "Content-Type": "application/json",
-                                  Authorization: `Bearer ${token}`
-                                },
-                                body: JSON.stringify({ note })
-                              });
-                              // Refresh
-                              const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/shared-habits`, {
-                                headers: { Authorization: `Bearer ${token}` },
-                              });
-                              const data = await res.json();
-                              setSharedHabits(data);
+                              try {
+                                await api.post(`/shared-habits/${id}/toggle`, { note });
+                                // Refresh
+                                const res = await api.get("/shared-habits");
+                                setSharedHabits(res.data);
+                              } catch (err) { console.error(err); }
                             }}
                             onUpdateNote={async (id, note) => {
-                              const token = user.token || localStorage.getItem("token");
-                              const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/shared-habits/${id}/note`, {
-                                method: "PUT",
-                                headers: {
-                                  "Content-Type": "application/json",
-                                  Authorization: `Bearer ${token}`,
-                                },
-                                body: JSON.stringify({ note }),
-                              });
-                              if (res.ok) {
-                                const data = await res.json();
-                                setSharedHabits((prev) => prev.map(h => h._id === id ? data : h));
-                              }
+                              try {
+                                const res = await api.put(`/shared-habits/${id}/note`, { note });
+                                setSharedHabits((prev) => prev.map(h => h._id === id ? res.data : h));
+                              } catch (err) { console.error(err); }
                             }}
                             onLeave={null} // Disable leave from home home for safety?
                             onDelete={async (id) => {
                               if (!window.confirm("CRITICAL: Delete this entire party group for everyone? This cannot be undone.")) return;
-                              const token = user.token || localStorage.getItem("token");
-                              const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/shared-habits/${id}`, {
-                                method: "DELETE",
-                                headers: { Authorization: `Bearer ${token}` },
-                              });
-                              if (res.ok) {
+                              try {
+                                await api.delete(`/shared-habits/${id}`);
                                 setSharedHabits((prev) => prev.filter((h) => h._id !== id));
-                              }
+                              } catch (err) { console.error(err); }
                             }}
                           />
                         ))
@@ -402,32 +386,19 @@ export default function App() {
                     setActiveTab("home");
                   }}
                   onAddParty={async (data) => {
-                    const token = user.token || localStorage.getItem("token");
                     try {
-                      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/shared-habits`, {
-                        method: "POST",
-                        headers: {
-                          "Content-Type": "application/json",
-                          Authorization: `Bearer ${token}`,
-                        },
-                        body: JSON.stringify({
-                          name: data.name,
-                          emoji: data.emoji,
-                          category: data.category,
-                          frequency: data.frequency,
-                          invitedUsernames: data.invitees
-                        }),
+                      await api.post("/shared-habits", {
+                        name: data.name,
+                        emoji: data.emoji,
+                        category: data.category,
+                        frequency: data.frequency,
+                        invitedUsernames: data.invitees
                       });
-                      if (res.ok) {
-                        alert("Party habit created successfully! Invitations sent.");
-                        setActiveTab("party");
-                      } else {
-                        const errData = await res.json();
-                        alert(`Failed: ${errData.message}`);
-                      }
+                      alert("Party habit created successfully! Invitations sent.");
+                      setActiveTab("party");
                     } catch (err) {
                       console.error(err);
-                      alert("Error creating party habit");
+                      alert(`Failed: ${err.response?.data?.message || err.message}`);
                     }
                   }}
                 />
@@ -454,27 +425,27 @@ export default function App() {
             <div className="bottom-nav">
               <button
                 className={activeTab === "home" ? "active" : ""}
-                onClick={() => setActiveTab("home")}
+                onClick={() => changeTab("home")}
               >
                 <img src={homeIcon} alt="Home" className="nav-icon" />
               </button>
               <button
                 className={activeTab === "goals" ? "active" : ""}
-                onClick={() => setActiveTab("goals")}
+                onClick={() => changeTab("goals")}
               >
                 <img src={goalsIcon} alt="Goals" className="nav-icon" />
               </button>
 
               <button
                 className={activeTab === "add" ? "active" : ""}
-                onClick={() => setActiveTab("add")}
+                onClick={() => changeTab("add")}
               >
                 <img src={addIcon} alt="Add" className="nav-icon" />
               </button>
 
               <button
                 className={isChatOpen ? "active" : ""}
-                onClick={() => setIsChatOpen(true)}
+                onClick={() => setIsChatOpen(!isChatOpen)}
                 style={{ position: 'relative' }}
               >
                 <img src={chatIcon} alt="Messages" className="nav-icon" />
@@ -500,21 +471,21 @@ export default function App() {
 
               <button
                 className={activeTab === "leaderboard" ? "active" : ""}
-                onClick={() => setActiveTab("leaderboard")}
+                onClick={() => changeTab("leaderboard")}
               >
                 <img src={rankIcon} alt="Rank" className="nav-icon" />
               </button>
 
               <button
                 className={activeTab === "badges" ? "active" : ""}
-                onClick={() => setActiveTab("badges")}
+                onClick={() => changeTab("badges")}
               >
                 <img src={achievementsIcon} alt="Achievements" className="nav-icon" />
               </button>
 
               <button
                 className={activeTab === "party" ? "active" : ""}
-                onClick={() => setActiveTab("party")}
+                onClick={() => changeTab("party")}
                 style={{ position: 'relative' }}
               >
                 <img src={partyIcon} alt="Party" className="nav-icon" />
