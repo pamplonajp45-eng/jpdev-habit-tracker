@@ -145,6 +145,28 @@ export default function App() {
     }
   };
 
+  const handleAcceptInvite = async (id) => {
+    try {
+      await api.post(`/shared-habits/${id}/accept`);
+      // Refresh both
+      const [invitesRes, habitsRes] = await Promise.all([
+        api.get("/shared-habits/invitations"),
+        api.get("/shared-habits")
+      ]);
+      setInvitations(invitesRes.data);
+      setSharedHabits(habitsRes.data);
+    } catch (err) { console.error(err); }
+  };
+
+  const handleRejectInvite = async (id) => {
+    if (!window.confirm("Reject this invitation?")) return;
+    try {
+      await api.post(`/shared-habits/${id}/reject`);
+      const res = await api.get("/shared-habits/invitations");
+      setInvitations(res.data);
+    } catch (err) { console.error(err); }
+  };
+
   if (loading) {
     return <div className="loading-screen">Loading HaBITAW...</div>;
   }
@@ -322,7 +344,28 @@ export default function App() {
                 >
                   {selectedCategory === "Shared" ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                      {sharedHabits.length === 0 ? (
+                      {invitations.length > 0 && (
+                        <div style={{ background: "rgba(99,102,241,0.05)", borderRadius: "16px", padding: "1rem", border: "1px dashed rgba(99,102,241,0.3)", marginBottom: "0.5rem" }}>
+                          <p style={{ fontSize: "0.75rem", color: "#6366f1", fontWeight: 800, textTransform: "uppercase", marginBottom: "0.8rem", display: "flex", alignItems: "center", gap: "6px" }}>
+                            📩 Pending Invitations ({invitations.length})
+                          </p>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                            {invitations.map(invite => (
+                              <div key={invite._id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255,255,255,0.03)", padding: "10px 12px", borderRadius: "12px", gap: "12px" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+                                  <span style={{ fontSize: "1.1rem" }}>{invite.emoji || "🤝"}</span>
+                                  <span style={{ fontWeight: 700, color: "#e2e8f0", fontSize: "0.85rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{invite.name}</span>
+                                </div>
+                                <div style={{ display: "flex", gap: "6px" }}>
+                                  <button onClick={() => handleAcceptInvite(invite._id)} style={{ background: "#6366f1", color: "white", border: "none", borderRadius: "6px", padding: "5px 12px", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>Join</button>
+                                  <button onClick={() => handleRejectInvite(invite._id)} style={{ background: "none", color: "#6b7280", border: "none", cursor: "pointer", fontSize: "0.8rem" }}>✕</button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {sharedHabits.length === 0 && invitations.length === 0 ? (
                         <p style={{ textAlign: "center", color: "#6b7280", padding: "2rem" }}>No active parties. Create one in the "+" tab!</p>
                       ) : (
                         sharedHabits.map(h => (
