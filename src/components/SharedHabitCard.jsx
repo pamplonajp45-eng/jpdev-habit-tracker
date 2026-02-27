@@ -14,6 +14,11 @@ function getColor(username) {
   return avatarColors[Math.abs(hash) % avatarColors.length];
 }
 
+// Always compare as strings to avoid MongoDB ObjectId vs string mismatch
+function sameId(a, b) {
+  return String(a) === String(b);
+}
+
 export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave, onDelete, onUpdateNote, onEdit }) {
   const [expanded, setExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -25,12 +30,13 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
   const totalMembers = members.length;
   const completedMembers = members.filter((m) => m.completedToday).length;
   const allDone = completedMembers === totalMembers && totalMembers > 0;
-  const myEntry = members.find((m) => m.userId === currentUser._id);
+
+  // FIX: use sameId() so ObjectId and string both match
+  const myEntry = members.find((m) => sameId(m.userId, currentUser._id));
 
   const [noteText, setNoteText] = useState(myEntry?.note || "");
   const textareaRef = useRef(null);
 
-  // Recalculate height whenever noteText changes (including after save)
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -45,7 +51,9 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
   }, [myEntry?.note]);
 
   const iDone = myEntry?.completedToday ?? false;
-  const isCreator = habit.createdBy === currentUser._id;
+
+  // FIX: use sameId() for creator check too
+  const isCreator = sameId(habit.createdBy, currentUser._id);
 
   const progressPct = totalMembers > 0 ? Math.round((completedMembers / totalMembers) * 100) : 0;
 
@@ -88,7 +96,6 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
         overflow: "hidden",
       }}
     >
-      {/* Glow pulse when all done */}
       {allDone && (
         <div style={{
           position: "absolute", inset: 0,
@@ -99,7 +106,6 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
 
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
-        {/* Emoji / icon */}
         {isEditing ? (
           <input
             value={editEmoji}
@@ -146,7 +152,6 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
                   ✎ Edit
                 </button>
               )}
-              {/* Streak badge */}
               {habit.streak > 0 && (
                 <span style={{
                   background: "rgba(245,158,11,0.2)", color: "#fbbf24",
@@ -195,7 +200,7 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
           )}
         </div>
 
-        {/* My toggle button */}
+        {/* Toggle button */}
         {!isEditing && (
           <button
             onClick={() => onToggle(habit._id, noteText)}
@@ -223,9 +228,7 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
             {completedMembers}/{totalMembers}
           </span>
         </div>
-        <div style={{
-          height: 6, background: "rgba(255,255,255,0.07)", borderRadius: 99, overflow: "hidden"
-        }}>
+        <div style={{ height: 6, background: "rgba(255,255,255,0.07)", borderRadius: 99, overflow: "hidden" }}>
           <div style={{
             height: "100%", borderRadius: 99,
             width: `${progressPct}%`,
@@ -237,17 +240,10 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
         </div>
       </div>
 
-      {/* Header/Summary avatars & dropdown toggle */}
+      {/* Avatar row */}
       <div
         onClick={() => setExpanded(!expanded)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          marginTop: "0.75rem",
-          gap: "0.35rem",
-          cursor: "pointer",
-          padding: "4px 0"
-        }}
+        style={{ display: "flex", alignItems: "center", marginTop: "0.75rem", gap: "0.35rem", cursor: "pointer", padding: "4px 0" }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", flex: 1 }}>
           {members.slice(0, 5).map((member) => (
@@ -258,9 +254,7 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
                 background: getColor(member.username),
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontSize: "0.55rem", fontWeight: 800, color: "#fff",
-                border: member.completedToday
-                  ? "1.5px solid #34d399"
-                  : "1.5px solid rgba(255,255,255,0.1)",
+                border: member.completedToday ? "1.5px solid #34d399" : "1.5px solid rgba(255,255,255,0.1)",
                 opacity: member.completedToday ? 1 : 0.5,
               }}
             >
@@ -271,7 +265,6 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
             <span style={{ fontSize: "0.65rem", color: "#6b7280", marginLeft: "2px" }}>+{members.length - 5}</span>
           )}
         </div>
-
         <div style={{ display: "flex", alignItems: "center", gap: "4px", color: expanded ? "#6366f1" : "#6b7280", transition: "all 0.2s" }}>
           <span style={{ fontSize: "0.72rem", fontWeight: 700 }}>{expanded ? "COLLAPSE" : "DETAILS"}</span>
           <span style={{
@@ -283,7 +276,7 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
         </div>
       </div>
 
-      {/* Collapsible Dropdown Content */}
+      {/* Expanded content */}
       {expanded && (
         <div style={{
           marginTop: "1rem",
@@ -298,7 +291,6 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
             }
           `}</style>
 
-          {/* Daily Note Section (Inside Dropdown) */}
           {iDone && (
             <div style={{
               marginBottom: "1.2rem",
@@ -352,13 +344,10 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
             </div>
           )}
 
-          {/* Team Notes Section (Inside Dropdown) */}
           {members.some(m => m.note && m.note.trim() !== "") && (
             <div style={{
-              marginBottom: "1.2rem",
-              padding: "0.8rem",
-              background: "rgba(0,0,0,0.2)",
-              borderRadius: "12px",
+              marginBottom: "1.2rem", padding: "0.8rem",
+              background: "rgba(0,0,0,0.2)", borderRadius: "12px",
               border: "1px solid rgba(255,255,255,0.05)"
             }}>
               <div style={{ fontSize: "0.7rem", color: "#6b7280", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.6rem" }}>
@@ -371,15 +360,15 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
                       width: 24, height: 24, borderRadius: "50%",
                       background: getColor(member.username),
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: "0.6rem", fontWeight: 800, color: "#fff", flexShrink: 0,
-                      marginTop: "2px"
+                      fontSize: "0.6rem", fontWeight: 800, color: "#fff", flexShrink: 0, marginTop: "2px"
                     }}>
                       {getInitials(member.username)}
                     </div>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#a0a0b8" }}>
                         {member.username}
-                        {member.userId.toString() === currentUser._id.toString() && (
+                        {/* FIX: sameId() here too */}
+                        {sameId(member.userId, currentUser._id) && (
                           <span style={{ color: "#6366f1", marginLeft: "4px", fontSize: "0.65rem" }}>(You)</span>
                         )}
                       </div>
@@ -399,7 +388,6 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
             </div>
           )}
 
-          {/* Detailed Member List (Inside Dropdown) */}
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
             <div style={{ fontSize: "0.7rem", color: "#6b7280", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.4rem" }}>
               Party Teammates
@@ -415,14 +403,14 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
                   width: 28, height: 28, borderRadius: "50%",
                   background: getColor(member.username),
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "0.65rem", fontWeight: 800, color: "#fff",
-                  flexShrink: 0
+                  fontSize: "0.65rem", fontWeight: 800, color: "#fff", flexShrink: 0
                 }}>
                   {getInitials(member.username)}
                 </div>
                 <span style={{ fontSize: "0.82rem", color: "#e2e8f0", flex: 1 }}>
                   {member.username}
-                  {member.userId === currentUser._id && (
+                  {/* FIX: sameId() here too */}
+                  {sameId(member.userId, currentUser._id) && (
                     <span style={{ color: "#6366f1", marginLeft: 4, fontSize: "0.7rem" }}>(you)</span>
                   )}
                 </span>
@@ -438,7 +426,6 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
             ))}
           </div>
 
-          {/* Actions Section */}
           <div style={{ marginTop: "1.2rem", display: "flex", gap: "0.6rem" }}>
             {isCreator ? (
               <button
