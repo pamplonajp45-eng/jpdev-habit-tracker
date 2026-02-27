@@ -106,7 +106,7 @@ export function useHabits(user, setUser) {
         }
     }
 
-    async function toggleHabit(id) {
+    async function toggleHabit(id, note = "") {
         const originalHabits = [...habits];
         const targetHabit = habits.find((h) => h._id === id);
         if (!targetHabit) return;
@@ -128,7 +128,7 @@ export function useHabits(user, setUser) {
         if (isNowCompleted) playSound("toggle");
 
         try {
-            const res = await api.post(`/habits/${id}/toggle`);
+            const res = await api.post(`/habits/${id}/toggle`, { note });
             const updatedHabit = res.data.habit;
             const serverCompletedStatus = res.data.message === "Habit checked";
 
@@ -174,6 +174,19 @@ export function useHabits(user, setUser) {
         }
     }
 
+    async function updateHabitNote(id, note) {
+        try {
+            await api.put(`/habits/${id}/note`, { note });
+            setHabits((prev) =>
+                prev.map((h) =>
+                    h._id === id ? { ...h, note } : h
+                )
+            );
+        } catch (err) {
+            console.error("Failed to update note", err);
+        }
+    }
+
     async function deleteHabit(id) {
         const originalHabits = [...habits];
         setHabits((prev) => prev.filter((h) => h._id !== id));
@@ -196,6 +209,7 @@ export function useHabits(user, setUser) {
         addHabit,
         editHabit,
         toggleHabit,
+        updateHabitNote,
         deleteHabit,
         refreshHabits: fetchData,
         setHabits,

@@ -1,29 +1,39 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "../utils/api";
 
 const EMOJI_OPTIONS = ["🤝", "💪", "🏃", "📚", "🧘", "🎯", "🍎", "💧", "🌙", "☀️", "🎵", "✍️"];
 
 export default function CreateSharedHabit({ onSubmit, onCancel }) {
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("🤝");
-  const [inviteInput, setInviteInput] = useState("");
   const [invitees, setInvitees] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [friends, setFriends] = useState([]);
+  const [fetchingFriends, setFetchingFriends] = useState(true);
 
-  const addInvitee = () => {
-    const trimmed = inviteInput.trim().toLowerCase();
-    if (!trimmed) return;
-    if (invitees.includes(trimmed)) {
-      setError("Already added that user.");
-      return;
+  useEffect(() => {
+    const fetchFriends = async () => {
+      try {
+        const res = await api.get("/friends");
+        setFriends(res.data);
+      } catch (err) {
+        console.error("Failed to fetch friends", err);
+        setError("Could not load your friends list.");
+      } finally {
+        setFetchingFriends(false);
+      }
+    };
+    fetchFriends();
+  }, []);
+
+  const toggleInvitee = (username) => {
+    if (invitees.includes(username)) {
+      setInvitees((prev) => prev.filter((u) => u !== username));
+    } else {
+      setInvitees((prev) => [...prev, username]);
     }
-    setInvitees((prev) => [...prev, trimmed]);
-    setInviteInput("");
     setError("");
-  };
-
-  const removeInvitee = (username) => {
-    setInvitees((prev) => prev.filter((u) => u !== username));
   };
 
   const handleSubmit = async () => {
@@ -96,58 +106,68 @@ export default function CreateSharedHabit({ onSubmit, onCancel }) {
       {/* Invite teammates */}
       <div style={{ marginBottom: "1rem" }}>
         <label style={{ fontSize: "0.8rem", color: "#6b7280", display: "block", marginBottom: "0.4rem" }}>
-          Invite by username
+          Invite your friends
         </label>
-        <div style={{ display: "flex", gap: "0.5rem" }}>
-          <input
-            value={inviteInput}
-            onChange={(e) => setInviteInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addInvitee()}
-            placeholder="Enter username…"
-            style={{
-              flex: 1, padding: "0.65rem 0.9rem",
-              borderRadius: "12px", border: "1.5px solid rgba(99,102,241,0.3)",
-              background: "rgba(20,20,36,0.8)", color: "#e2e8f0",
-              fontSize: "0.9rem", outline: "none"
-            }}
-          />
-          <button
-            onClick={addInvitee}
-            style={{
-              padding: "0 1rem", borderRadius: "12px",
-              background: "rgba(99,102,241,0.25)",
-              border: "1.5px solid rgba(99,102,241,0.4)",
-              color: "#a5b4fc", fontWeight: 700, cursor: "pointer",
-              fontSize: "1.1rem"
-            }}
-          >
-            +
-          </button>
-        </div>
 
-        {/* Invitee chips */}
-        {invitees.length > 0 && (
-          <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
-            {invitees.map((u) => (
-              <span
-                key={u}
-                style={{
-                  background: "rgba(99,102,241,0.2)",
-                  border: "1px solid rgba(99,102,241,0.35)",
-                  borderRadius: "20px", padding: "3px 10px",
-                  fontSize: "0.8rem", color: "#a5b4fc",
-                  display: "flex", alignItems: "center", gap: "5px"
-                }}
-              >
-                @{u}
-                <span
-                  onClick={() => removeInvitee(u)}
-                  style={{ cursor: "pointer", color: "#ef4444", fontWeight: 700 }}
+        {fetchingFriends ? (
+          <p style={{ fontSize: "0.85rem", color: "#6b7280" }}>Loading friends...</p>
+        ) : friends.length === 0 ? (
+          <p style={{ fontSize: "0.85rem", color: "#6b7280" }}>
+            No friends found. Add friends first to create a party!
+          </p>
+        ) : (
+          <div style={{
+            maxHeight: "150px",
+            overflowY: "auto",
+            padding: "0.5rem",
+            background: "rgba(20,20,36,0.6)",
+            borderRadius: "12px",
+            border: "1.5px solid rgba(99,102,241,0.2)"
+          }}>
+            {friends.map((f) => {
+              const isInvited = invitees.includes(f.username.toLowerCase());
+              return (
+                <div
+                  key={f._id}
+                  onClick={() => toggleInvitee(f.username)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.8rem",
+                    padding: "0.5rem",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    background: isInvited ? "rgba(99,102,241,0.15)" : "transparent",
+                    transition: "all 0.2s"
+                  }}
                 >
-                  ×
-                </span>
-              </span>
-            ))}
+                  <div style={{
+                    width: 32, height: 32, borderRadius: "50%",
+                    background: isInvited ? "#6366f1" : "rgba(255,255,255,0.1)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: "0.75rem", fontWeight: 800, color: "#fff"
+                  }}>
+                    {f.username.slice(0, 2).toUpperCase()}
+                  </div>
+                  <span style={{
+                    flex: 1,
+                    fontSize: "0.85rem",
+                    color: isInvited ? "#a5b4fc" : "#e2e8f0",
+                    fontWeight: isInvited ? 700 : 400
+                  }}>
+                    {f.username}
+                  </span>
+                  {isInvited && <span style={{ color: "#6366f1", fontWeight: 900 }}>✓</span>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Selected count */}
+        {invitees.length > 0 && (
+          <div style={{ marginTop: "0.6rem", fontSize: "0.75rem", color: "#a5b4fc" }}>
+            Selected: {invitees.length} friend{invitees.length > 1 ? "s" : ""}
           </div>
         )}
       </div>

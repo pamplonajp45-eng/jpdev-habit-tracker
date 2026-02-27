@@ -32,7 +32,11 @@ const HabitSchema = new mongoose.Schema({
         default: Date.now
     },
     category: {
-        type: "String"
+        type: String
+    },
+    todayNote: {
+        type: String,
+        default: ""
     }
 });
 

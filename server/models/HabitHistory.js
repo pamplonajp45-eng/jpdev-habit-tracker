@@ -9,9 +9,14 @@ const HabitHistorySchema = new mongoose.Schema({
   },
   habitId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Habit",
     required: true,
     index: true,
+  },
+  habitName: String, // Store name for easier historical display
+  habitType: {
+    type: String,
+    enum: ["personal", "shared"],
+    default: "personal"
   },
   date: {
     type: Date,
@@ -23,9 +28,13 @@ const HabitHistorySchema = new mongoose.Schema({
     enum: ["completed", "missed"],
     default: "completed",
   },
+  note: {
+    type: String,
+    default: "",
+  },
 });
 
 // Ensure a user can only have one history record per habit per day
-HabitHistorySchema.index({ habitId: 1, date: 1 }, { unique: true });
+HabitHistorySchema.index({ userId: 1, habitId: 1, date: 1 }, { unique: true });
 
 module.exports = mongoose.model("HabitHistory", HabitHistorySchema);

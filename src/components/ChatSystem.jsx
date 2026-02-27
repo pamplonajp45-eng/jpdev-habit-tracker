@@ -229,7 +229,7 @@ export default function ChatSystem({ isOpen, onClose, currentUser, onUnreadChang
         }
     };
 
-    if (!isOpen) return null;
+    // if (!isOpen) return null; // Removed for persistent rendering and transition
 
     const sendMessage = async () => {
         if (!input.trim() || !selectedFriend) return;
@@ -310,9 +310,24 @@ export default function ChatSystem({ isOpen, onClose, currentUser, onUnreadChang
     const showChat = !isMobile || (isMobile && selectedFriend);
 
     return (
-        <div style={styles.overlay} onClick={onClose}>
+        <div
+            style={{
+                ...styles.overlay,
+                opacity: isOpen ? 1 : 0,
+                visibility: isOpen ? "visible" : "hidden",
+                transition: "opacity 0.4s ease, visibility 0.4s"
+            }}
+            onClick={onClose}
+        >
             <div
-                style={{ ...styles.root, ...(isMobile ? styles.rootMobile : {}) }}
+                style={{
+                    ...styles.root,
+                    ...(isMobile ? styles.rootMobile : {}),
+                    opacity: isOpen ? 1 : 0,
+                    transform: isOpen ? "translateX(0)" : "translateX(-100px)",
+                    transition: "transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease",
+                    pointerEvents: isOpen ? "auto" : "none"
+                }}
                 onClick={(e) => e.stopPropagation()}
                 className={isMobile ? "mobile-root" : ""}
             >
@@ -608,6 +623,7 @@ const styles = {
         alignItems: "center",
         justifyContent: "center",
         zIndex: 1000,
+        backdropFilter: "blur(4px)",
     },
     root: {
         display: "flex",

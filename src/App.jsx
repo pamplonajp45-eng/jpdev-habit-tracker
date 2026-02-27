@@ -25,6 +25,9 @@ import chatIcon from "./assets/icons/chat.png";
 import addIcon from "./assets/icons/add.png";
 import logoutIcon from "./assets/icons/logout.png";
 import SharedHabits from "./components/SharedHabits";
+import partyIcon from "./assets/icons/sharedHabits.png";
+import SharedHabitCard from "./components/SharedHabitCard";
+import HabitHistoryLog from "./components/HabitHistoryLog";
 export default function App() {
   const {
     user,
@@ -55,6 +58,7 @@ export default function App() {
     editHabit,
     toggleHabit,
     deleteHabit,
+    updateHabitNote,
     refreshHabits,
     setHabits,
     setHistory,
@@ -69,6 +73,38 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [totalUnread, setTotalUnread] = useState(0);
+  const [invitations, setInvitations] = useState([]);
+  const [sharedHabits, setSharedHabits] = useState([]);
+
+  useEffect(() => {
+    if (user) {
+      const fetchData = async () => {
+        const token = user.token || localStorage.getItem("token");
+        try {
+          const [invitesRes, habitsRes] = await Promise.all([
+            fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/shared-habits/invitations`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }),
+            fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/shared-habits`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+          ]);
+
+          if (invitesRes.ok) {
+            const data = await invitesRes.json();
+            setInvitations(data);
+          }
+          if (habitsRes.ok) {
+            const data = await habitsRes.json();
+            setSharedHabits(data);
+          }
+        } catch (err) { console.error(err); }
+      };
+      fetchData();
+      const interval = setInterval(fetchData, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
 
   // Register for push notifications when user logs in
   useEffect(() => {
@@ -252,7 +288,7 @@ export default function App() {
                 <ContributionCalendar history={history} />
 
                 <div className="category-filter-container" style={{ display: "flex", gap: "0.5rem", marginTop: "1.5rem", overflowX: "auto", paddingBottom: "0.5rem" }}>
-                  {["All", ...new Set(habits.map(h => h.category).filter(c => c && c !== "general"))].map(cat => (
+                  {["All", "Shared", ...new Set(habits.map(h => h.category).filter(c => c && c !== "general"))].map(cat => (
                     <button
                       key={cat}
                       className={`category-pill ${selectedCategory === cat ? "active" : ""}`}
@@ -278,17 +314,80 @@ export default function App() {
                   className="habit-list-wrapper"
                   style={{ marginTop: "1rem" }}
                 >
-                  <HabitList
-                    habits={selectedCategory === "All" ? habits : habits.filter(h => h.category === selectedCategory)}
-                    onToggle={toggleHabit}
-                    onDelete={deleteHabit}
-                    onEdit={editHabit}
-                    togglingIds={togglingIds}
-                  />
-                  {habits.length === 0 && (
-                    <p className="text-center text-gray-500 mt-4">
-                      No habits yet. Add one to get started!
-                    </p>
+                  {selectedCategory === "Shared" ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                      {sharedHabits.length === 0 ? (
+                        <p style={{ textAlign: "center", color: "#6b7280", padding: "2rem" }}>No active parties. Create one in the "+" tab!</p>
+                      ) : (
+                        sharedHabits.map(h => (
+                          <SharedHabitCard
+                            key={h._id}
+                            habit={h}
+                            currentUser={user}
+                            onToggle={async (id, note) => {
+                              const token = user.token || localStorage.getItem("token");
+                              await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/shared-habits/${id}/toggle`, {
+                                method: "POST",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                  Authorization: `Bearer ${token}`
+                                },
+                                body: JSON.stringify({ note })
+                              });
+                              // Refresh
+                              const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/shared-habits`, {
+                                headers: { Authorization: `Bearer ${token}` },
+                              });
+                              const data = await res.json();
+                              setSharedHabits(data);
+                            }}
+                            onUpdateNote={async (id, note) => {
+                              const token = user.token || localStorage.getItem("token");
+                              const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/shared-habits/${id}/note`, {
+                                method: "PUT",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                  Authorization: `Bearer ${token}`,
+                                },
+                                body: JSON.stringify({ note }),
+                              });
+                              if (res.ok) {
+                                const data = await res.json();
+                                setSharedHabits((prev) => prev.map(h => h._id === id ? data : h));
+                              }
+                            }}
+                            onLeave={null} // Disable leave from home home for safety?
+                            onDelete={async (id) => {
+                              if (!window.confirm("CRITICAL: Delete this entire party group for everyone? This cannot be undone.")) return;
+                              const token = user.token || localStorage.getItem("token");
+                              const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/shared-habits/${id}`, {
+                                method: "DELETE",
+                                headers: { Authorization: `Bearer ${token}` },
+                              });
+                              if (res.ok) {
+                                setSharedHabits((prev) => prev.filter((h) => h._id !== id));
+                              }
+                            }}
+                          />
+                        ))
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <HabitList
+                        habits={selectedCategory === "All" ? habits : habits.filter(h => h.category === selectedCategory)}
+                        onToggle={toggleHabit}
+                        updateHabitNote={updateHabitNote}
+                        onDelete={deleteHabit}
+                        onEdit={editHabit}
+                        togglingIds={togglingIds}
+                      />
+                      {habits.length === 0 && (
+                        <p className="text-center text-gray-500 mt-4">
+                          No habits yet. Add one to get started!
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               </>
@@ -302,6 +401,35 @@ export default function App() {
                     addHabit(data);
                     setActiveTab("home");
                   }}
+                  onAddParty={async (data) => {
+                    const token = user.token || localStorage.getItem("token");
+                    try {
+                      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/shared-habits`, {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({
+                          name: data.name,
+                          emoji: data.emoji,
+                          category: data.category,
+                          frequency: data.frequency,
+                          invitedUsernames: data.invitees
+                        }),
+                      });
+                      if (res.ok) {
+                        alert("Party habit created successfully! Invitations sent.");
+                        setActiveTab("party");
+                      } else {
+                        const errData = await res.json();
+                        alert(`Failed: ${errData.message}`);
+                      }
+                    } catch (err) {
+                      console.error(err);
+                      alert("Error creating party habit");
+                    }
+                  }}
                 />
                 <button
                   className="cancel-btn"
@@ -312,7 +440,12 @@ export default function App() {
               </div>
             )}
 
-            {activeTab === "goals" && <GoalList habits={habits} />}
+            {activeTab === "goals" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <GoalList habits={habits} />
+                <HabitHistoryLog habits={habits} history={history} />
+              </div>
+            )}
             {activeTab === "leaderboard" && <Leaderboard />}
             {activeTab === "badges" && <BadgeCollection user={user} />}
             {activeTab === "party" && <SharedHabits currentUser={user} />}
@@ -382,9 +515,18 @@ export default function App() {
               <button
                 className={activeTab === "party" ? "active" : ""}
                 onClick={() => setActiveTab("party")}
-                data-icon="🤝"
+                style={{ position: 'relative' }}
               >
-                Party
+                <img src={partyIcon} alt="Party" className="nav-icon" />
+                {invitations.length > 0 && (
+                  <span className="unread-pulse-badge" style={{
+                    position: 'absolute', top: '-6px', right: '12px', background: '#6366f1', color: 'white',
+                    borderRadius: '12px', padding: '2px 6px', fontSize: '9px', fontWeight: '900',
+                    boxShadow: '0 0 10px rgba(99, 102, 241, 0.7)', border: '1.5px solid #1a1a2e'
+                  }}>
+                    {invitations.length}
+                  </span>
+                )}
               </button>
 
             </div>

@@ -17,7 +17,13 @@ exports.getHeatmapData = async (req, res) => {
             {
                 $group: {
                     _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
-                    completed: { $sum: 1 }
+                    completed: { $sum: 1 },
+                    notes: {
+                        $push: {
+                            habitName: '$habitName',
+                            note: '$note'
+                        }
+                    }
                 }
             }
         ]);
@@ -26,9 +32,10 @@ exports.getHeatmapData = async (req, res) => {
         const totalHabits = await Habit.countDocuments({ userId });
 
         const formattedData = heatmapData.map(item => ({
-            date: item._id, // Format: "YYYY-MM-DD"
+            date: item._id,
             completed: item.completed,
-            total: totalHabits > 0 ? totalHabits : 1 // Avoid division by zero, approximation
+            total: totalHabits > 0 ? totalHabits : 1,
+            notes: item.notes || []
         }));
 
         res.json(formattedData);

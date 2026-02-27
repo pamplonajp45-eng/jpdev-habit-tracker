@@ -49,13 +49,15 @@ exports.getHabits = async (req, res) => {
       status: "completed",
     });
 
-    const completedHabitIds = new Set(
-      historyToday.map((h) => h.habitId.toString()),
-    );
+    const completedHabitMap = {};
+    historyToday.forEach((h) => {
+      completedHabitMap[h.habitId.toString()] = h.note || "";
+    });
 
     const habitsWithStatus = habits.map((habit) => ({
       ...habit.toObject(),
-      completedToday: completedHabitIds.has(habit._id.toString()),
+      completedToday: habit._id.toString() in completedHabitMap,
+      note: completedHabitMap[habit._id.toString()] || "",
       isDueToday: isHabitDue(habit, today),
     }));
 
@@ -138,6 +140,36 @@ exports.deleteHabit = async (req, res) => {
   }
 };
 
+// @desc    Update today's note for a habit
+// @route   PUT /api/habits/:id/note
+// @access  Private
+exports.updateHabitNote = async (req, res) => {
+  try {
+    const habitId = req.params.id;
+    const userId = req.user.id;
+    const { note } = req.body;
+
+    const today = getLocalTodayUTC();
+    const historyEntry = await HabitHistory.findOne({
+      userId,
+      habitId,
+      date: today,
+    });
+
+    if (!historyEntry) {
+      return res.status(400).json({ message: "Habit must be completed to add a note." });
+    }
+
+    historyEntry.note = note || "";
+    await historyEntry.save();
+
+    res.json({ message: "Note updated", note: historyEntry.note });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 // @desc    Toggle habit completion for today
 // @route   POST /api/habits/:id/toggle
 // @access  Private
@@ -145,6 +177,7 @@ exports.toggleHabitCompletion = async (req, res) => {
   try {
     const habitId = req.params.id;
     const userId = req.user.id;
+    const { note } = req.body;
 
     const habit = await Habit.findById(habitId);
     if (!habit) return res.status(404).json({ message: "Habit not found" });
@@ -181,8 +214,11 @@ exports.toggleHabitCompletion = async (req, res) => {
     await HabitHistory.create({
       userId,
       habitId,
+      habitName: habit.name,
+      habitType: "personal",
       date: today,
       status: "completed",
+      note: note || "",
     });
 
     // Check if completed on the previous due date to continue streak

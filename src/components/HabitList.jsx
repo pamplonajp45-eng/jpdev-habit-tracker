@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import fire2 from "../assets/fire/fire2.png";
 import fire3 from "../assets/fire/fire3.png";
 import fire4 from "../assets/fire/fire4.png";
@@ -13,8 +13,22 @@ const habitColors = [
   "#3b82f6"  // Blue
 ];
 
-export default function HabitList({ habits, onToggle, onDelete, onEdit, togglingIds }) {
+export default function HabitList({ habits, onToggle, onDelete, onEdit, togglingIds, updateHabitNote }) {
   const [editingHabitId, setEditingHabitId] = useState(null);
+  const [notes, setNotes] = useState({}); // { habitId: noteText }
+
+  // Sync notes from habits prop when it changes
+  useEffect(() => {
+    setNotes(prev => {
+      const newNotes = { ...prev };
+      habits.forEach(h => {
+        if (h.note !== undefined && h._id in newNotes === false) {
+          newNotes[h._id] = h.note;
+        }
+      });
+      return newNotes;
+    });
+  }, [habits]);
 
   return (
     <ul className="habit-list">
@@ -62,6 +76,34 @@ export default function HabitList({ habits, onToggle, onDelete, onEdit, toggling
                     <span className="not-due-label">Not scheduled for today</span>
                   )}
                 </p>
+
+                {habit.completedToday && (
+                  <div className="habit-note-container" style={{ marginTop: "8px" }}>
+                    <input
+                      type="text"
+                      placeholder="Add a note (e.g., '10 pages', '2km')..."
+                      value={notes[habit._id] || ""}
+                      onChange={(e) => setNotes({ ...notes, [habit._id]: e.target.value })}
+                      onBlur={() => updateHabitNote(habit._id, notes[habit._id])}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          updateHabitNote(habit._id, notes[habit._id]);
+                          e.target.blur();
+                        }
+                      }}
+                      style={{
+                        width: "100%",
+                        background: "rgba(255,255,255,0.05)",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        borderRadius: "8px",
+                        padding: "6px 10px",
+                        fontSize: "0.75rem",
+                        color: "#e2e8f0",
+                        outline: "none"
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               {editingHabitId !== habit._id && (
@@ -70,7 +112,7 @@ export default function HabitList({ habits, onToggle, onDelete, onEdit, toggling
                     <input
                       type="checkbox"
                       checked={habit.completedToday}
-                      onChange={() => onToggle(habit._id)}
+                      onChange={() => onToggle(habit._id, notes[habit._id] || "")}
                       className="habit-checkbox-custom"
                       disabled={(togglingIds && togglingIds.has(habit._id)) || !habit.isDueToday}
                       id={`habit-${habit._id}`}
