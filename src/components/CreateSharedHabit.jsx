@@ -6,6 +6,8 @@ const EMOJI_OPTIONS = ["🤝", "💪", "🏃", "📚", "🧘", "🎯", "🍎", "
 export default function CreateSharedHabit({ onSubmit, onCancel }) {
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("🤝");
+  const [frequency, setFrequency] = useState("daily");
+  const [category, setCategory] = useState("general");
   const [invitees, setInvitees] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -42,7 +44,7 @@ export default function CreateSharedHabit({ onSubmit, onCancel }) {
     setLoading(true);
     setError("");
     try {
-      await onSubmit({ name: name.trim(), emoji, invitees });
+      await onSubmit({ name: name.trim(), emoji, frequency, category, invitees });
     } catch (e) {
       setError(e.message || "Something went wrong.");
     } finally {
@@ -83,6 +85,57 @@ export default function CreateSharedHabit({ onSubmit, onCancel }) {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Frequency Selector */}
+      <div style={{ marginBottom: "1rem" }}>
+        <label style={{ fontSize: "0.8rem", color: "#6b7280", display: "block", marginBottom: "0.4rem" }}>
+          Frequency
+        </label>
+        <select
+          value={frequency}
+          onChange={(e) => setFrequency(e.target.value)}
+          style={{
+            width: "100%", padding: "0.65rem 0.9rem",
+            borderRadius: "12px", border: "1.5px solid rgba(99,102,241,0.3)",
+            background: "rgba(20,20,36,0.8)", color: "#e2e8f0",
+            fontSize: "0.9rem", outline: "none", boxSizing: "border-box",
+            cursor: "pointer"
+          }}
+        >
+          <option value="daily">Every day</option>
+          <option value="weekly">Specific days of week</option>
+          <option value="custom">Every X days</option>
+        </select>
+      </div>
+
+      {/* Category Dropdown */}
+      <div style={{ marginBottom: "1rem" }}>
+        <label style={{ fontSize: "0.8rem", color: "#6b7280", display: "block", marginBottom: "0.4rem" }}>
+          Category
+        </label>
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          style={{
+            width: "100%", padding: "0.65rem 0.9rem",
+            borderRadius: "12px", border: "1.5px solid rgba(99,102,241,0.3)",
+            background: "rgba(20,20,36,0.8)", color: "#e2e8f0",
+            fontSize: "0.9rem", outline: "none", boxSizing: "border-box",
+            cursor: "pointer"
+          }}
+        >
+          <option value="general">General</option>
+          <option value="health">Health</option>
+          <option value="finance">Finance</option>
+          <option value="relationship">Relationship</option>
+          <option value="self-care">Self-care</option>
+          <option value="hobby">Hobby</option>
+          <option value="sports">Sports</option>
+          <option value="work">Work</option>
+          <option value="study">Study</option>
+          <option value="self-improvement">Self-improvement</option>
+        </select>
       </div>
 
       {/* Habit name */}

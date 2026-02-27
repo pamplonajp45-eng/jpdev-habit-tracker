@@ -159,8 +159,12 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
             </div>
           )}
 
-          <p style={{ color: "#6b7280", fontSize: "0.78rem", margin: "2px 0 0" }}>
-            Party • {totalMembers} members
+          <p style={{ color: "#6b7280", fontSize: "0.78rem", margin: "2px 0 0", display: "flex", alignItems: "center", gap: "5px", flexWrap: "wrap" }}>
+            <span style={{ background: "rgba(255,255,255,0.05)", padding: "2px 6px", borderRadius: "4px", color: "#a0a0b8" }}>{habit.frequency || "daily"}</span>
+            <span style={{ color: "#4b5563" }}>•</span>
+            <span style={{ background: "rgba(99,102,241,0.1)", padding: "2px 6px", borderRadius: "4px", color: "#818cf8" }}>{habit.category || "general"}</span>
+            <span style={{ color: "#4b5563" }}>•</span>
+            <span>{totalMembers} members</span>
           </p>
 
           {isEditing && (
@@ -212,7 +216,7 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
       </div>
 
       {/* Team progress bar */}
-      <div style={{ marginTop: "0.85rem" }}>
+      <div style={{ marginTop: "0.85rem", cursor: "pointer" }} onClick={() => setExpanded(!expanded)}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "5px" }}>
           <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>Team progress</span>
           <span style={{ fontSize: "0.75rem", color: "#a0a0b8", fontWeight: 600 }}>
@@ -233,228 +237,235 @@ export default function SharedHabitCard({ habit, currentUser, onToggle, onLeave,
         </div>
       </div>
 
-      {iDone && (
-        <div style={{
-          marginTop: "1rem",
-          background: "rgba(99,102,241,0.05)",
-          padding: "1rem",
-          borderRadius: "12px",
-          border: "1px solid rgba(99,102,241,0.15)"
-        }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
-            <label style={{ fontSize: "0.75rem", color: "#6366f1", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Your Daily Note
-            </label>
-            <button
-              onClick={handleSaveNote}
-              disabled={isSavingNote}
+      {/* Header/Summary avatars & dropdown toggle */}
+      <div
+        onClick={() => setExpanded(!expanded)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          marginTop: "0.75rem",
+          gap: "0.35rem",
+          cursor: "pointer",
+          padding: "4px 0"
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", flex: 1 }}>
+          {members.slice(0, 5).map((member) => (
+            <div
+              key={member.userId}
               style={{
-                background: "linear-gradient(135deg, #6366f1, #818cf8)",
-                color: "#fff",
-                border: "none",
-                borderRadius: "6px",
-                padding: "4px 12px",
-                fontSize: "0.7rem",
-                fontWeight: 700,
-                cursor: "pointer",
-                opacity: isSavingNote ? 0.6 : 1,
-                boxShadow: "0 2px 6px rgba(99,102,241,0.3)"
+                width: 24, height: 24, borderRadius: "50%",
+                background: getColor(member.username),
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "0.55rem", fontWeight: 800, color: "#fff",
+                border: member.completedToday
+                  ? "1.5px solid #34d399"
+                  : "1.5px solid rgba(255,255,255,0.1)",
+                opacity: member.completedToday ? 1 : 0.5,
               }}
             >
-              {isSavingNote ? "Saving..." : "Save Note"}
-            </button>
-          </div>
-          <textarea
-            ref={textareaRef}
-            placeholder="What did you do today?..."
-            value={noteText}
-            onChange={(e) => {
-              setNoteText(e.target.value);
-              // Auto resize
-              e.target.style.height = "auto";
-              e.target.style.height = e.target.scrollHeight + "px";
-            }}
-            onBlur={() => onUpdateNote(habit._id, noteText)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                handleSaveNote();
-                e.target.blur();
-              }
-            }}
-            rows={1}
-            style={{
-              width: "100%",
-              background: "rgba(30,30,46,0.5)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "8px",
-              padding: "10px 12px",
-              fontSize: "0.85rem",
-              color: "#e2e8f0",
-              outline: "none",
-              resize: "none",
-              overflow: "hidden",
-              lineHeight: "1.5",
-              boxSizing: "border-box"
-            }}
-          />
+              {getInitials(member.username)}
+            </div>
+          ))}
+          {members.length > 5 && (
+            <span style={{ fontSize: "0.65rem", color: "#6b7280", marginLeft: "2px" }}>+{members.length - 5}</span>
+          )}
         </div>
-      )}
 
-      {/* Team Notes Section */}
-      {members.some(m => m.note && m.note.trim() !== "") && (
+        <div style={{ display: "flex", alignItems: "center", gap: "4px", color: expanded ? "#6366f1" : "#6b7280", transition: "all 0.2s" }}>
+          <span style={{ fontSize: "0.72rem", fontWeight: 700 }}>{expanded ? "COLLAPSE" : "DETAILS"}</span>
+          <span style={{
+            fontSize: "0.8rem",
+            transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 0.3s ease",
+            display: "inline-block"
+          }}>▼</span>
+        </div>
+      </div>
+
+      {/* Collapsible Dropdown Content */}
+      {expanded && (
         <div style={{
-          marginTop: "1.2rem",
-          padding: "0.8rem",
-          background: "rgba(0,0,0,0.2)",
-          borderRadius: "12px",
-          border: "1px solid rgba(255,255,255,0.05)"
+          marginTop: "1rem",
+          borderTop: "1.5px solid rgba(255,255,255,0.06)",
+          paddingTop: "1.2rem",
+          animation: "cardExpand 0.3s ease-out"
         }}>
-          <div style={{ fontSize: "0.7rem", color: "#6b7280", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.6rem" }}>
-            Team Notes
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
-            {members.filter(m => m.note && m.note.trim() !== "").map((member) => (
-              <div key={member.userId} style={{ display: "flex", gap: "0.6rem", alignItems: "flex-start" }}>
+          <style>{`
+            @keyframes cardExpand {
+              from { opacity: 0; transform: translateY(-10px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+          `}</style>
+
+          {/* Daily Note Section (Inside Dropdown) */}
+          {iDone && (
+            <div style={{
+              marginBottom: "1.2rem",
+              background: "rgba(99,102,241,0.05)",
+              padding: "1rem",
+              borderRadius: "12px",
+              border: "1px solid rgba(99,102,241,0.15)"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
+                <label style={{ fontSize: "0.75rem", color: "#6366f1", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Your Daily Note
+                </label>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleSaveNote(); }}
+                  disabled={isSavingNote}
+                  style={{
+                    background: "linear-gradient(135deg, #6366f1, #818cf8)",
+                    color: "#fff", border: "none", borderRadius: "6px",
+                    padding: "4px 12px", fontSize: "0.7rem", fontWeight: 700,
+                    cursor: "pointer", opacity: isSavingNote ? 0.6 : 1
+                  }}
+                >
+                  {isSavingNote ? "Saving..." : "Save Note"}
+                </button>
+              </div>
+              <textarea
+                ref={textareaRef}
+                placeholder="What did you do today?..."
+                value={noteText}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  setNoteText(e.target.value);
+                  e.target.style.height = "auto";
+                  e.target.style.height = e.target.scrollHeight + "px";
+                }}
+                onBlur={() => onUpdateNote(habit._id, noteText)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    handleSaveNote();
+                    e.target.blur();
+                  }
+                }}
+                rows={1}
+                style={{
+                  width: "100%", background: "rgba(30,30,46,0.5)",
+                  border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px",
+                  padding: "10px 12px", fontSize: "0.85rem", color: "#e2e8f0",
+                  outline: "none", resize: "none", boxSizing: "border-box"
+                }}
+              />
+            </div>
+          )}
+
+          {/* Team Notes Section (Inside Dropdown) */}
+          {members.some(m => m.note && m.note.trim() !== "") && (
+            <div style={{
+              marginBottom: "1.2rem",
+              padding: "0.8rem",
+              background: "rgba(0,0,0,0.2)",
+              borderRadius: "12px",
+              border: "1px solid rgba(255,255,255,0.05)"
+            }}>
+              <div style={{ fontSize: "0.7rem", color: "#6b7280", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.6rem" }}>
+                Team Notes
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
+                {members.filter(m => m.note && m.note.trim() !== "").map((member) => (
+                  <div key={member.userId} style={{ display: "flex", gap: "0.6rem", alignItems: "flex-start" }}>
+                    <div style={{
+                      width: 24, height: 24, borderRadius: "50%",
+                      background: getColor(member.username),
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: "0.6rem", fontWeight: 800, color: "#fff", flexShrink: 0,
+                      marginTop: "2px"
+                    }}>
+                      {getInitials(member.username)}
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#a0a0b8" }}>
+                        {member.username}
+                        {member.userId.toString() === currentUser._id.toString() && (
+                          <span style={{ color: "#6366f1", marginLeft: "4px", fontSize: "0.65rem" }}>(You)</span>
+                        )}
+                      </div>
+                      <div style={{
+                        fontSize: "0.78rem", color: "#e2e8f0",
+                        background: "rgba(255,255,255,0.03)",
+                        padding: "6px 10px", borderRadius: "0 10px 10px 10px",
+                        marginTop: "2px", borderLeft: `2px solid ${getColor(member.username)}`,
+                        whiteSpace: "pre-wrap", wordBreak: "break-word"
+                      }}>
+                        {member.note}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Detailed Member List (Inside Dropdown) */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div style={{ fontSize: "0.7rem", color: "#6b7280", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.4rem" }}>
+              Party Teammates
+            </div>
+            {members.map((member) => (
+              <div key={member.userId} style={{
+                display: "flex", alignItems: "center", gap: "0.6rem",
+                padding: "0.5rem", borderRadius: "10px",
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.02)"
+              }}>
                 <div style={{
-                  width: 24, height: 24, borderRadius: "50%",
+                  width: 28, height: 28, borderRadius: "50%",
                   background: getColor(member.username),
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "0.6rem", fontWeight: 800, color: "#fff", flexShrink: 0,
-                  marginTop: "2px"
+                  fontSize: "0.65rem", fontWeight: 800, color: "#fff",
+                  flexShrink: 0
                 }}>
                   {getInitials(member.username)}
                 </div>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#a0a0b8" }}>
-                    {member.username}
-                    {member.userId.toString() === currentUser._id.toString() && (
-                      <span style={{ color: "#6366f1", marginLeft: "4px", fontSize: "0.65rem" }}>(You)</span>
-                    )}
-                  </div>
-                  <div style={{
-                    fontSize: "0.78rem", color: "#e2e8f0",
-                    background: "rgba(255,255,255,0.03)",
-                    padding: "6px 10px", borderRadius: "0 10px 10px 10px",
-                    marginTop: "2px", borderLeft: `2px solid ${getColor(member.username)}`,
-                    whiteSpace: "pre-wrap", wordBreak: "break-word"
-                  }}>
-                    {member.note}
-                  </div>
-                </div>
+                <span style={{ fontSize: "0.82rem", color: "#e2e8f0", flex: 1 }}>
+                  {member.username}
+                  {member.userId === currentUser._id && (
+                    <span style={{ color: "#6366f1", marginLeft: 4, fontSize: "0.7rem" }}>(you)</span>
+                  )}
+                </span>
+                <span style={{
+                  fontSize: "0.72rem", fontWeight: 700,
+                  color: member.completedToday ? "#10b981" : "#64748b",
+                  background: member.completedToday ? "rgba(16,185,129,0.1)" : "rgba(255,255,255,0.04)",
+                  padding: "2px 8px", borderRadius: "12px"
+                }}>
+                  {member.completedToday ? "Done ✓" : "Pending"}
+                </span>
               </div>
             ))}
           </div>
-        </div>
-      )}
 
-      {/* Member avatars row */}
-      <div style={{ display: "flex", alignItems: "center", marginTop: "0.75rem", gap: "0.35rem", flexWrap: "wrap" }}>
-        {members.map((member) => (
-          <div
-            key={member.userId}
-            title={`${member.username} – ${member.completedToday ? "Done ✓" : "Not yet"}`}
-            style={{
-              width: 32, height: 32, borderRadius: "50%",
-              background: getColor(member.username),
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "0.7rem", fontWeight: 800, color: "#fff",
-              border: member.completedToday
-                ? "2.5px solid #34d399"
-                : "2.5px solid rgba(255,255,255,0.1)",
-              position: "relative",
-              opacity: member.completedToday ? 1 : 0.55,
-              transition: "all 0.2s ease",
-              cursor: "default",
-            }}
-          >
-            {getInitials(member.username)}
-            {member.completedToday && (
-              <span style={{
-                position: "absolute", bottom: -3, right: -3,
-                background: "#10b981", borderRadius: "50%",
-                width: 13, height: 13, display: "flex",
-                alignItems: "center", justifyContent: "center",
-                fontSize: "0.5rem", color: "#fff", fontWeight: 900,
-                border: "1.5px solid #1a1a2e"
-              }}>✓</span>
+          {/* Actions Section */}
+          <div style={{ marginTop: "1.2rem", display: "flex", gap: "0.6rem" }}>
+            {isCreator ? (
+              <button
+                onClick={(e) => { e.stopPropagation(); onDelete && onDelete(habit._id); }}
+                style={{
+                  flex: 1, background: "rgba(239,68,68,0.1)",
+                  border: "1px solid rgba(239,68,68,0.2)",
+                  color: "#ef4444", borderRadius: "10px", padding: "10px",
+                  fontSize: "0.8rem", cursor: "pointer", fontWeight: 700
+                }}
+              >
+                🗑️ Delete Group
+              </button>
+            ) : (
+              <button
+                onClick={(e) => { e.stopPropagation(); onLeave && onLeave(habit._id); }}
+                style={{
+                  flex: 1, background: "rgba(239,68,68,0.1)",
+                  border: "1px solid rgba(239,68,68,0.2)",
+                  color: "#ef4444", borderRadius: "10px", padding: "10px",
+                  fontSize: "0.8rem", cursor: "pointer", fontWeight: 700
+                }}
+              >
+                🚪 Leave Party
+              </button>
             )}
           </div>
-        ))}
-
-        <button
-          onClick={() => setExpanded(!expanded)}
-          style={{
-            marginLeft: "auto", background: "none", border: "none",
-            color: "#6b7280", fontSize: "0.75rem", cursor: "pointer",
-            padding: "2px 6px"
-          }}
-        >
-          {expanded ? "▲ less" : "▼ details"}
-        </button>
-      </div>
-
-      {/* Expanded member list */}
-      {expanded && (
-        <div style={{
-          marginTop: "0.75rem", borderTop: "1px solid rgba(255,255,255,0.06)",
-          paddingTop: "0.75rem", display: "flex", flexDirection: "column", gap: "0.4rem"
-        }}>
-          {members.map((member) => (
-            <div key={member.userId} style={{
-              display: "flex", alignItems: "center", gap: "0.6rem",
-              padding: "0.35rem 0.5rem", borderRadius: "8px",
-              background: "rgba(255,255,255,0.03)"
-            }}>
-              <div style={{
-                width: 28, height: 28, borderRadius: "50%",
-                background: getColor(member.username),
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: "0.65rem", fontWeight: 800, color: "#fff",
-                flexShrink: 0
-              }}>
-                {getInitials(member.username)}
-              </div>
-              <span style={{ fontSize: "0.82rem", color: "#c4c4d4", flex: 1 }}>
-                {member.username}
-                {member.userId === currentUser._id && (
-                  <span style={{ color: "#6366f1", marginLeft: 4, fontSize: "0.7rem" }}>(you)</span>
-                )}
-              </span>
-              <span style={{
-                fontSize: "0.75rem", fontWeight: 700,
-                color: member.completedToday ? "#34d399" : "#ef4444"
-              }}>
-                {member.completedToday ? "✓ Done" : "✗ Pending"}
-              </span>
-            </div>
-          ))}
-
-          {isCreator ? (
-            <button
-              onClick={() => onDelete && onDelete(habit._id)}
-              style={{
-                marginTop: "0.4rem", background: "rgba(239,68,68,0.15)",
-                border: "1.5px solid rgba(239,68,68,0.3)",
-                color: "#ef4444", borderRadius: "8px", padding: "8px",
-                fontSize: "0.82rem", cursor: "pointer", width: "100%",
-                fontWeight: 700
-              }}
-            >
-              🗑️ Delete Party Group
-            </button>
-          ) : (
-            <button
-              onClick={() => onLeave && onLeave(habit._id)}
-              style={{
-                marginTop: "0.4rem", background: "rgba(239,68,68,0.1)",
-                border: "1px solid rgba(239,68,68,0.25)",
-                color: "#ef4444", borderRadius: "8px", padding: "6px",
-                fontSize: "0.78rem", cursor: "pointer", width: "100%"
-              }}
-            >
-              Leave Party
-            </button>
-          )}
         </div>
       )}
     </div>

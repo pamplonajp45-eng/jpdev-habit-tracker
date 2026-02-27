@@ -354,7 +354,10 @@ export default function App() {
                               <div key={invite._id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255,255,255,0.03)", padding: "10px 12px", borderRadius: "12px", gap: "12px" }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
                                   <span style={{ fontSize: "1.1rem" }}>{invite.emoji || "🤝"}</span>
-                                  <span style={{ fontWeight: 700, color: "#e2e8f0", fontSize: "0.85rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{invite.name}</span>
+                                  <div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
+                                    <span style={{ fontWeight: 700, color: "#e2e8f0", fontSize: "0.85rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{invite.name}</span>
+                                    <span style={{ fontSize: "0.7rem", color: "#64748b" }}>{invite.frequency} • {invite.category}</span>
+                                  </div>
                                 </div>
                                 <div style={{ display: "flex", gap: "6px" }}>
                                   <button onClick={() => handleAcceptInvite(invite._id)} style={{ background: "#6366f1", color: "white", border: "none", borderRadius: "6px", padding: "5px 12px", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>Join</button>

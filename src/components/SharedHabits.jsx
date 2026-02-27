@@ -33,11 +33,13 @@ export default function SharedHabits({ currentUser }) {
     return () => clearInterval(interval);
   }, [fetchSharedHabits]);
 
-  const handleCreate = async ({ name, emoji, invitees }) => {
+  const handleCreate = async ({ name, emoji, frequency, category, invitees }) => {
     try {
-      const res = await api.post("/shared-habits", {
+      await api.post("/shared-habits", {
         name,
         emoji,
+        frequency,
+        category,
         invitedUsernames: invitees,
       });
       setCreating(false);
@@ -231,7 +233,12 @@ export default function SharedHabits({ currentUser }) {
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontWeight: 700, color: "#e2e8f0", fontSize: "0.95rem" }}>{invite.name}</div>
-                        <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                        <div style={{ fontSize: "0.75rem", color: "#64748b", display: "flex", alignItems: "center", gap: "5px", marginTop: "2px" }}>
+                          <span style={{ color: "#6366f1", fontWeight: 600 }}>{invite.frequency || "daily"}</span>
+                          <span>•</span>
+                          <span>{invite.category || "general"}</span>
+                        </div>
+                        <div style={{ fontSize: "0.72rem", color: "#4b5563", marginTop: "1px" }}>
                           Invited by <b>{invite.members.find(m => m.status === 'accepted')?.username || 'someone'}</b>
                         </div>
                       </div>
