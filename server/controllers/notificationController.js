@@ -16,9 +16,7 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
     console.warn('VAPID keys missing. Push notifications will be disabled.');
 }
 
-// @desc    Subscribe to push notifications
-// @route   POST /api/notifications/subscribe
-// @access  Private
+
 const subscribe = async (req, res) => {
     try {
         const { subscription } = req.body;
@@ -37,9 +35,7 @@ const subscribe = async (req, res) => {
     }
 };
 
-// @desc    Unsubscribe from push notifications
-// @route   POST /api/notifications/unsubscribe
-// @access  Private
+
 const unsubscribe = async (req, res) => {
     try {
         const { endpoint } = req.body;

@@ -5,7 +5,7 @@ const memberSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     username: { type: String, required: true },
     completedToday: { type: Boolean, default: false },
-    lastCompletedDate: { type: String, default: "" }, // "YYYY-MM-DD"
+    lastCompletedDate: { type: String, default: "" }, 
     note: { type: String, default: "" },
 });
 

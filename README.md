@@ -68,4 +68,4 @@ Our application rewards consistency:
 - **Level Badges:** Earn XP per habit to level up. Reach high levels to achieve prestigious titles like *Momentum Maker* or *Discipline Lord*.
 
 ## 💡 About
-This is a personal passion project crafted by JPDev. It represents a journey of continuous learning, building, and self-improvement—both in code and in daily habits.
+This is a personal passion project crafted by Jordan Pamplona. It represents a journey of continuous learning, building, and self-improvement—both in code and in daily habits.
