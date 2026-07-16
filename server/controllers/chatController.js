@@ -1,5 +1,6 @@
 const Message = require("../models/Message");
 const User = require("../models/User");
+const TypingStatus = require("../models/TypingStatus");
 const { encrypt, decrypt } = require("../utils/encryption");
 const { sendNotification } = require("./notificationController");
 
@@ -101,7 +102,65 @@ const getChatHistory = async (req, res) => {
   }
 };
 
+// @desc    Set typing status (for polling fallback in production)
+// @route   POST /api/chat/typing
+// @access  Private
+const setTypingStatus = async (req, res) => {
+  try {
+    const { recipientId, isTyping } = req.body;
+
+    // Store typing status in DB (auto-expires after 30s via TTL)
+    await TypingStatus.findOneAndUpdate(
+      {
+        userId: req.user._id,
+        conversationWith: recipientId,
+      },
+      {
+        userId: req.user._id,
+        conversationWith: recipientId,
+        isTyping: isTyping,
+        updatedAt: new Date(),
+      },
+      { upsert: true, new: true },
+    );
+
+    // If we have an active socket connection, also emit via WebSocket
+    const io = req.app.get("io");
+    if (io) {
+      io.to(recipientId).emit("typing", {
+        userId: req.user._id,
+        isTyping: isTyping,
+      });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// @desc    Get typing status for a user
+// @route   GET /api/chat/typing/:userId
+// @access  Private
+const getTypingStatus = async (req, res) => {
+  try {
+    // Check if the other user is typing in conversation with current user
+    const typingStatus = await TypingStatus.findOne({
+      userId: req.params.userId,
+      conversationWith: req.user._id,
+    });
+
+    res.json({ isTyping: typingStatus ? typingStatus.isTyping : false });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   sendMessage,
   getChatHistory,
+  setTypingStatus,
+  getTypingStatus,
 };

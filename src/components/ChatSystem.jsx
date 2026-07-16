@@ -10,6 +10,14 @@ const statusColor = { online: "#22d3a5", away: "#f59e0b", offline: "#64748b" };
 
 const SOCKET_URL = import.meta.env.PROD ? "/" : "http://localhost:5000";
 
+// Typing auto-clear timeout for production reliability (ms)
+const TYPING_CLEAR_TIMEOUT = 5000;
+
+// Polling intervals for production (Vercel serverless)
+const FRIEND_STATUS_POLL_INTERVAL = 30000; // 30 seconds
+const TYPING_POLL_INTERVAL = 2000; // 2 seconds
+const HEARTBEAT_INTERVAL = 15000; // 15 seconds
+
 export default function ChatSystem({
   isOpen,
   onClose,
@@ -37,6 +45,7 @@ export default function ChatSystem({
   const isOpenRef = useRef(isOpen);
   const selectedFriendRef = useRef(selectedFriend);
   const viewRef = useRef(view);
+  const typingClearTimersRef = useRef({});
 
   useEffect(() => {
     isOpenRef.current = isOpen;
@@ -192,6 +201,127 @@ export default function ChatSystem({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [currentMessages, typingUsers]);
 
+  // Production polling: Poll friend statuses for online updates
+  useEffect(() => {
+    if (!isOpen || !currentUser) return;
+
+    const pollFriendStatuses = async () => {
+      try {
+        const res = await api.get("/friends/status");
+        const friendStatuses = res.data;
+        setFriends((prev) =>
+          prev.map((f) => {
+            const status = friendStatuses[f._id];
+            if (status) {
+              return {
+                ...f,
+                isOnline: status.isOnline,
+                status: status.isOnline ? "online" : "offline",
+                lastSeen: formatLastSeen(status.lastSeen),
+              };
+            }
+            return f;
+          }),
+        );
+        // Also update selectedFriend if applicable (use ref for current value)
+        const currentSelectedFriend = selectedFriendRef.current;
+        if (currentSelectedFriend) {
+          const status = friendStatuses[currentSelectedFriend._id];
+          if (status) {
+            setSelectedFriend((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    isOnline: status.isOnline,
+                    status: status.isOnline ? "online" : "offline",
+                    lastSeen: formatLastSeen(status.lastSeen),
+                  }
+                : prev,
+            );
+          }
+        }
+      } catch (err) {
+        console.error("Failed to poll friend statuses", err);
+      }
+    };
+
+    // Poll immediately on open
+    pollFriendStatuses();
+
+    // Set up interval for production polling
+    const interval = setInterval(
+      pollFriendStatuses,
+      FRIEND_STATUS_POLL_INTERVAL,
+    );
+
+    return () => clearInterval(interval);
+  }, [isOpen, currentUser]);
+
+  // Production polling: Poll typing status for selected friend
+  useEffect(() => {
+    if (!currentUser) return;
+
+    let currentFriendId = null;
+
+    const pollTypingStatus = async () => {
+      const currentSelectedFriend = selectedFriendRef.current;
+      if (!currentSelectedFriend) return;
+
+      currentFriendId = currentSelectedFriend._id;
+
+      try {
+        const res = await api.get(`/chat/typing/${currentSelectedFriend._id}`);
+        setTypingUsers((prev) => ({
+          ...prev,
+          [currentFriendId]: res.data.isTyping,
+        }));
+
+        // Auto-clear typing indicator after timeout (safety net)
+        if (res.data.isTyping) {
+          if (typingClearTimersRef.current[currentFriendId]) {
+            clearTimeout(typingClearTimersRef.current[currentFriendId]);
+          }
+          typingClearTimersRef.current[currentFriendId] = setTimeout(() => {
+            setTypingUsers((prev) => ({
+              ...prev,
+              [currentFriendId]: false,
+            }));
+          }, TYPING_CLEAR_TIMEOUT);
+        }
+      } catch (err) {
+        console.error("Failed to poll typing status", err);
+      }
+    };
+
+    pollTypingStatus();
+    const interval = setInterval(pollTypingStatus, TYPING_POLL_INTERVAL);
+
+    return () => {
+      clearInterval(interval);
+      if (currentFriendId && typingClearTimersRef.current[currentFriendId]) {
+        clearTimeout(typingClearTimersRef.current[currentFriendId]);
+      }
+    };
+  }, [currentUser]);
+
+  // Production: Heartbeat to maintain online status
+  useEffect(() => {
+    if (!isOpen || !currentUser) return;
+
+    const sendHeartbeat = async () => {
+      try {
+        await api.post("/friends/heartbeat");
+      } catch (err) {
+        console.error("Heartbeat failed", err);
+      }
+    };
+
+    const interval = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
+    sendHeartbeat(); // Send immediately on open
+
+    return () => clearInterval(interval);
+  }, [isOpen, currentUser]);
+
   const fetchFriends = async () => {
     try {
       const res = await api.get("/friends");
@@ -305,6 +435,7 @@ export default function ChatSystem({
       setInput(e.target.value);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
+      // Send typing via WebSocket (works in dev/local)
       if (selectedFriend && socketRef.current) {
         socketRef.current.emit("typing", {
           recipientId: selectedFriend._id,
@@ -312,12 +443,32 @@ export default function ChatSystem({
         });
       }
 
+      // Also send via HTTP API (for production fallback)
+      if (selectedFriend) {
+        api
+          .post("/chat/typing", {
+            recipientId: selectedFriend._id,
+            isTyping: true,
+          })
+          .catch(() => {}); // Silent fail in production
+      }
+
       typingTimeoutRef.current = setTimeout(() => {
+        // Clear typing via WebSocket
         if (selectedFriend && socketRef.current) {
           socketRef.current.emit("typing", {
             recipientId: selectedFriend._id,
             isTyping: false,
           });
+        }
+        // Clear typing via HTTP API
+        if (selectedFriend) {
+          api
+            .post("/chat/typing", {
+              recipientId: selectedFriend._id,
+              isTyping: false,
+            })
+            .catch(() => {});
         }
       }, 1000);
     },
@@ -328,36 +479,50 @@ export default function ChatSystem({
     if (!input.trim() || !selectedFriend) return;
 
     const text = input.trim();
+    const recipientId = selectedFriend._id; // Capture for HTTP fallback
     setInput("");
     setReplyTo(null);
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    if (selectedFriend && socketRef.current) {
+
+    // Clear typing via WebSocket
+    if (socketRef.current) {
       socketRef.current.emit("typing", {
-        recipientId: selectedFriend._id,
+        recipientId: recipientId,
         isTyping: false,
       });
     }
 
+    // Clear typing via HTTP API (production fallback)
+    api
+      .post("/chat/typing", {
+        recipientId: recipientId,
+        isTyping: false,
+      })
+      .catch(() => {});
+
     try {
       const res = await api.post("/chat/send", {
-        recipientId: selectedFriend._id,
+        recipientId: recipientId,
         text,
       });
+      const createdAt = res.data.createdAt
+        ? new Date(res.data.createdAt)
+        : new Date();
       const newMsg = {
         id: res.data._id,
         sender: currentUser._id,
         text: res.data.text,
-        time: new Date(res.data.createdAt).toLocaleTimeString([], {
+        time: createdAt.toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         }),
-        createdAt: res.data.createdAt,
+        createdAt: createdAt.toISOString(),
         read: false,
       };
       setMessages((prev) => ({
         ...prev,
-        [selectedFriend._id]: [...(prev[selectedFriend._id] || []), newMsg],
+        [recipientId]: [...(prev[recipientId] || []), newMsg],
       }));
     } catch (err) {
       console.error("Failed to send message", err);
