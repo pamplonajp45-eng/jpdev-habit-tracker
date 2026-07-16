@@ -266,6 +266,24 @@ export default function App() {
                   style={{ display: "flex", gap: "8px", alignItems: "center" }}
                 >
                   <button
+                    onClick={() => window.location.reload()}
+                    className="logout-pill"
+                    title="Refresh app"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "6px 10px",
+                      background: "var(--bg-secondary)",
+                      color: "var(--text-secondary)",
+                      border: "1px solid var(--card-border)",
+                      fontSize: "0.85rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <i className="fa fa-refresh" aria-hidden="true" />
+                  </button>
+                  <button
                     onClick={toggleTheme}
                     className="logout-pill"
                     title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
