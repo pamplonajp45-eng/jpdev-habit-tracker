@@ -61,7 +61,7 @@ const CreateGoalForm = ({ habits, onGoalCreated, onCancel }) => {
 
   const selectStyle = {
     ...inputStyle,
-    color: "black",
+    color: "var(--text-primary)",
   };
 
   const rowStyle = {
@@ -88,7 +88,7 @@ const CreateGoalForm = ({ habits, onGoalCreated, onCancel }) => {
   const cancelButtonStyle = {
     flex: "0 1 auto",
     minWidth: "100px",
-    background: "#333",
+    background: "var(--bg-secondary)",
     padding: "0.75rem 1.5rem",
   };
 

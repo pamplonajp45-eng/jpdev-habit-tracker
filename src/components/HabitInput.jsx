@@ -30,7 +30,20 @@ export default function HabitInput({ onAdd, onAddParty }) {
     }
   }, [mode]);
 
-  const EMOJI_OPTIONS = ["🤝", "💪", "🏃", "📚", "🧘", "🎯", "🍎", "💧", "🌙", "☀️", "🎵", "✍️"];
+  const EMOJI_OPTIONS = [
+    "🤝",
+    "💪",
+    "🏃",
+    "📚",
+    "🧘",
+    "🎯",
+    "🍎",
+    "💧",
+    "🌙",
+    "☀️",
+    "🎵",
+    "✍️",
+  ];
 
   const weekDays = [
     { label: "S", value: 0, full: "Sun" },
@@ -62,7 +75,7 @@ export default function HabitInput({ onAdd, onAddParty }) {
         emoji,
         category: category || "general",
         frequency: frequencyType,
-        invitees: invitees
+        invitees: invitees,
       };
       onAddParty(partyData);
     } else {
@@ -111,35 +124,18 @@ export default function HabitInput({ onAdd, onAddParty }) {
   return (
     <div className="habit-form">
       {/* Mode Switcher */}
-      <div style={{
-        display: "flex",
-        background: "rgba(255,255,255,0.05)",
-        borderRadius: "12px",
-        padding: "4px",
-        marginBottom: "1.2rem",
-        border: "1px solid rgba(255,255,255,0.1)"
-      }}>
+      <div className="mode-switcher">
         <button
           type="button"
           onClick={() => setMode("personal")}
-          style={{
-            flex: 1, padding: "8px", borderRadius: "10px", border: "none",
-            background: mode === "personal" ? "#6366f1" : "transparent",
-            color: mode === "personal" ? "#fff" : "#64748b",
-            fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", transition: "all 0.2s"
-          }}
+          className={mode === "personal" ? "active" : ""}
         >
           👤 Personal
         </button>
         <button
           type="button"
           onClick={() => setMode("party")}
-          style={{
-            flex: 1, padding: "8px", borderRadius: "10px", border: "none",
-            background: mode === "party" ? "#6366f1" : "transparent",
-            color: mode === "party" ? "#fff" : "#64748b",
-            fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", transition: "all 0.2s"
-          }}
+          className={mode === "party" ? "active" : ""}
         >
           🤝 Party
         </button>
@@ -148,13 +144,24 @@ export default function HabitInput({ onAdd, onAddParty }) {
       <input
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder={mode === "party" ? "Name your party habit..." : "Set a habit to conquer...!"}
+        placeholder={
+          mode === "party"
+            ? "Name your party habit..."
+            : "Set a habit to conquer...!"
+        }
         className="habit-textbox"
       />
 
       {mode === "party" && (
         <div style={{ marginBottom: "1rem" }}>
-          <label style={{ fontSize: "0.8rem", color: "#6b7280", display: "block", marginBottom: "0.4rem" }}>
+          <label
+            style={{
+              fontSize: "0.8rem",
+              color: "#6b7280",
+              display: "block",
+              marginBottom: "0.4rem",
+            }}
+          >
             Pick a Party Emoji
           </label>
           <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
@@ -164,10 +171,23 @@ export default function HabitInput({ onAdd, onAddParty }) {
                 type="button"
                 onClick={() => setEmoji(e)}
                 style={{
-                  width: 34, height: 34, borderRadius: "8px", fontSize: "1.1rem",
-                  border: emoji === e ? "2px solid #6366f1" : "1.5px solid rgba(255,255,255,0.1)",
-                  background: emoji === e ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.04)",
-                  cursor: "pointer", padding: 0, display: "flex", alignItems: "center", justifyContent: "center"
+                  width: 34,
+                  height: 34,
+                  borderRadius: "8px",
+                  fontSize: "1.1rem",
+                  border:
+                    emoji === e
+                      ? "2px solid #6366f1"
+                      : "1.5px solid rgba(255,255,255,0.1)",
+                  background:
+                    emoji === e
+                      ? "rgba(99,102,241,0.2)"
+                      : "rgba(255,255,255,0.04)",
+                  cursor: "pointer",
+                  padding: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
                 {e}
@@ -225,7 +245,14 @@ export default function HabitInput({ onAdd, onAddParty }) {
       </div>
 
       <div style={{ marginBottom: "1rem" }}>
-        <label style={{ fontSize: "0.8rem", color: "#6b7280", display: "block", marginBottom: "0.4rem" }}>
+        <label
+          style={{
+            fontSize: "0.8rem",
+            color: "#6b7280",
+            display: "block",
+            marginBottom: "0.4rem",
+          }}
+        >
           Category
         </label>
         <select
@@ -234,7 +261,9 @@ export default function HabitInput({ onAdd, onAddParty }) {
           className="category-dropdown"
           style={{ width: "100%", margin: 0 }}
         >
-          <option value="" disabled>Select a category</option>
+          <option value="" disabled>
+            Select a category
+          </option>
           <option value="health">Health</option>
           <option value="finance">Finance</option>
           <option value="relationship">Relationship</option>
@@ -249,42 +278,90 @@ export default function HabitInput({ onAdd, onAddParty }) {
 
       {mode === "party" && (
         <div style={{ marginBottom: "1.5rem" }}>
-          <label style={{ fontSize: "0.8rem", color: "#6b7280", display: "block", marginBottom: "0.6rem" }}>
+          <label
+            style={{
+              fontSize: "0.8rem",
+              color: "#6b7280",
+              display: "block",
+              marginBottom: "0.6rem",
+            }}
+          >
             Invite Teammates (Friends Only)
           </label>
-          <div style={{
-            maxHeight: "140px",
-            overflowY: "auto",
-            background: "rgba(20,20,36,0.6)",
-            borderRadius: "12px",
-            border: "1.5px solid rgba(99,102,241,0.2)",
-            padding: "4px"
-          }}>
+          <div
+            style={{
+              maxHeight: "140px",
+              overflowY: "auto",
+              background: "rgba(20,20,36,0.6)",
+              borderRadius: "12px",
+              border: "1.5px solid rgba(99,102,241,0.2)",
+              padding: "4px",
+            }}
+          >
             {fetchingFriends ? (
-              <div style={{ padding: "1rem", textAlign: "center", fontSize: "0.8rem", color: "#64748b" }}>Loading friends...</div>
+              <div
+                style={{
+                  padding: "1rem",
+                  textAlign: "center",
+                  fontSize: "0.8rem",
+                  color: "#64748b",
+                }}
+              >
+                Loading friends...
+              </div>
             ) : friends.length === 0 ? (
-              <div style={{ padding: "1rem", textAlign: "center", fontSize: "0.8rem", color: "#64748b" }}>No friends found. Add friends to start a party!</div>
+              <div
+                style={{
+                  padding: "1rem",
+                  textAlign: "center",
+                  fontSize: "0.8rem",
+                  color: "#64748b",
+                }}
+              >
+                No friends found. Add friends to start a party!
+              </div>
             ) : (
-              friends.map(f => (
+              friends.map((f) => (
                 <div
                   key={f._id}
                   onClick={() => toggleInvitee(f.username)}
                   style={{
-                    display: "flex", alignItems: "center", gap: "10px", padding: "8px 12px",
-                    borderRadius: "10px", cursor: "pointer",
-                    background: invitees.includes(f.username) ? "rgba(99,102,241,0.15)" : "transparent",
-                    transition: "all 0.2s"
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    padding: "8px 12px",
+                    borderRadius: "10px",
+                    cursor: "pointer",
+                    background: invitees.includes(f.username)
+                      ? "rgba(99,102,241,0.15)"
+                      : "transparent",
+                    transition: "all 0.2s",
                   }}
                 >
-                  <div style={{
-                    width: 28, height: 28, borderRadius: "50%",
-                    background: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: "0.7rem", fontWeight: 800, color: "#fff"
-                  }}>
+                  <div
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: "50%",
+                      background: "#4f46e5",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "0.7rem",
+                      fontWeight: 800,
+                      color: "#fff",
+                    }}
+                  >
                     {f.username.slice(0, 2).toUpperCase()}
                   </div>
-                  <span style={{ fontSize: "0.82rem", color: "#e2e8f0", flex: 1 }}>{f.username}</span>
-                  {invitees.includes(f.username) && <span style={{ color: "#6366f1", fontWeight: 900 }}>✓</span>}
+                  <span
+                    style={{ fontSize: "0.82rem", color: "#e2e8f0", flex: 1 }}
+                  >
+                    {f.username}
+                  </span>
+                  {invitees.includes(f.username) && (
+                    <span style={{ color: "#6366f1", fontWeight: 900 }}>✓</span>
+                  )}
                 </div>
               ))
             )}
@@ -292,7 +369,11 @@ export default function HabitInput({ onAdd, onAddParty }) {
         </div>
       )}
 
-      <button onClick={handleSubmit} className="habit-submit" style={{ marginTop: mode === "party" ? "0" : "0.5rem" }}>
+      <button
+        onClick={handleSubmit}
+        className="habit-submit"
+        style={{ marginTop: mode === "party" ? "0" : "0.5rem" }}
+      >
         {mode === "party" ? "🚀 Create Party Habit" : "+ Add Habit"}
       </button>
     </div>

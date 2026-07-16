@@ -64,6 +64,23 @@ io.on('connection', (socket) => {
             }
         }
     });
+
+    socket.on('typing', ({ recipientId, isTyping }) => {
+        io.to(recipientId).emit('typing', { userId: socket.userId, isTyping });
+    });
+
+    socket.on('markRead', async ({ senderId, readerId }) => {
+        try {
+            const Message = require('./models/Message');
+            await Message.updateMany(
+                { sender: senderId, recipient: readerId, read: false },
+                { $set: { read: true } }
+            );
+            io.to(senderId).emit('messagesRead', { readerId, senderId });
+        } catch (err) {
+            console.error('Error marking messages as read:', err);
+        }
+    });
 });
 
 // Export io to use in controllers
