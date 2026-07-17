@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import api from "../utils/api";
 import { io } from "socket.io-client";
 import chatIcon from "../assets/icons/chat.png";
@@ -13,10 +13,16 @@ const SOCKET_URL = import.meta.env.PROD ? "/" : "http://localhost:5000";
 // Typing auto-clear timeout for production reliability (ms)
 const TYPING_CLEAR_TIMEOUT = 5000;
 
-// Polling intervals for production (Vercel serverless)
-const FRIEND_STATUS_POLL_INTERVAL = 30000; // 30 seconds
-const TYPING_POLL_INTERVAL = 2000; // 2 seconds
-const HEARTBEAT_INTERVAL = 15000; // 15 seconds
+// Polling intervals - increased for better performance
+const FRIEND_STATUS_POLL_INTERVAL = 60000; // 60 seconds (was 30)
+const HEARTBEAT_INTERVAL = 30000; // 30 seconds (was 15)
+const TYPING_POLL_INTERVAL = 3000; // 3 seconds (was 2)
+
+// Pagination
+const MESSAGES_PER_PAGE = 50;
+
+// Typing debounce
+const TYPING_DEBOUNCE_MS = 1500;
 
 export default function ChatSystem({
   isOpen,
@@ -38,15 +44,25 @@ export default function ChatSystem({
   const [typingUsers, setTypingUsers] = useState({});
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [replyTo, setReplyTo] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState({});
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const socketRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const typingLastSentRef = useRef(0);
+  const debounceTimerRef = useRef(null);
+  const exploreDebounceRef = useRef(null);
 
+  // Refs for values used in socket callbacks (avoids stale closures)
   const isOpenRef = useRef(isOpen);
   const selectedFriendRef = useRef(selectedFriend);
   const viewRef = useRef(view);
   const typingClearTimersRef = useRef({});
+  const messagesRef = useRef(messages);
+  const friendsRef = useRef(friends);
 
+  // Keep refs in sync
   useEffect(() => {
     isOpenRef.current = isOpen;
   }, [isOpen]);
@@ -56,95 +72,116 @@ export default function ChatSystem({
   useEffect(() => {
     viewRef.current = view;
   }, [view]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+  useEffect(() => {
+    friendsRef.current = friends;
+  }, [friends]);
 
-  const currentMessages = selectedFriend
-    ? messages[selectedFriend._id] || []
-    : [];
+  const currentMessages = useMemo(
+    () => (selectedFriend ? messages[selectedFriend._id] || [] : []),
+    [messages, selectedFriend],
+  );
 
+  // Responsive
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Socket connection
   useEffect(() => {
-    if (currentUser) {
-      socketRef.current = io(SOCKET_URL);
+    if (!currentUser) return;
 
-      socketRef.current.on("connect", () => {
-        socketRef.current.emit("join", currentUser._id);
-      });
+    const socket = io(SOCKET_URL, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
+    socketRef.current = socket;
 
-      socketRef.current.on("newMessage", (msg) => {
-        const friendId =
-          msg.sender === currentUser._id ? msg.recipient : msg.sender;
+    socket.on("connect", () => {
+      socket.emit("join", currentUser._id);
+    });
 
-        setMessages((prev) => ({
+    socket.on("newMessage", (msg) => {
+      const friendId =
+        msg.sender === currentUser._id ? msg.recipient : msg.sender;
+
+      setMessages((prev) => {
+        const existing = prev[friendId] || [];
+        // Deduplicate by ID
+        if (existing.some((m) => m.id === msg.id)) return prev;
+        return {
           ...prev,
-          [friendId]: [...(prev[friendId] || []), msg],
-        }));
+          [friendId]: [...existing, msg],
+        };
+      });
 
-        if (msg.sender !== currentUser._id) {
-          const isChattingWithSender =
-            isOpenRef.current &&
-            selectedFriendRef.current?._id === friendId &&
-            viewRef.current === "chat";
+      if (msg.sender !== currentUser._id) {
+        const isChattingWithSender =
+          isOpenRef.current &&
+          selectedFriendRef.current?._id === friendId &&
+          viewRef.current === "chat";
 
-          if (!isChattingWithSender) {
-            setUnreadCounts((prev) => ({
-              ...prev,
-              [friendId]: (prev[friendId] || 0) + 1,
-            }));
+        if (!isChattingWithSender) {
+          setUnreadCounts((prev) => ({
+            ...prev,
+            [friendId]: (prev[friendId] || 0) + 1,
+          }));
 
-            const audio = new Audio("/add.mp3");
-            audio.volume = 0.5;
-            audio.play().catch(() => {});
-          }
+          const audio = new Audio("/add.mp3");
+          audio.volume = 0.5;
+          audio.play().catch(() => {});
         }
-      });
+      }
+    });
 
-      socketRef.current.on("userStatusChange", ({ userId, isOnline }) => {
-        setFriends((prev) =>
-          prev.map((f) =>
-            f._id === userId
-              ? { ...f, isOnline, status: isOnline ? "online" : "offline" }
-              : f,
-          ),
-        );
-        setSelectedFriend((prev) =>
-          prev?._id === userId
-            ? { ...prev, isOnline, status: isOnline ? "online" : "offline" }
-            : prev,
-        );
-      });
+    socket.on("userStatusChange", ({ userId, isOnline }) => {
+      setFriends((prev) =>
+        prev.map((f) =>
+          f._id === userId
+            ? { ...f, isOnline, status: isOnline ? "online" : "offline" }
+            : f,
+        ),
+      );
+      setSelectedFriend((prev) =>
+        prev?._id === userId
+          ? { ...prev, isOnline, status: isOnline ? "online" : "offline" }
+          : prev,
+      );
+    });
 
-      socketRef.current.on("typing", ({ userId, isTyping }) => {
-        setTypingUsers((prev) => ({
-          ...prev,
-          [userId]: isTyping,
-        }));
-      });
+    socket.on("typing", ({ userId, isTyping }) => {
+      setTypingUsers((prev) => ({
+        ...prev,
+        [userId]: isTyping,
+      }));
+    });
 
-      socketRef.current.on("messagesRead", ({ readerId, senderId }) => {
-        if (senderId === currentUser._id) {
-          setMessages((prev) => {
-            const msgs = prev[readerId] || [];
-            const updated = msgs.map((m) =>
-              m.sender === senderId && !m.read ? { ...m, read: true } : m,
-            );
-            return { ...prev, [readerId]: updated };
-          });
-        }
-      });
+    socket.on("messagesRead", ({ readerId, senderId }) => {
+      if (senderId === currentUser._id) {
+        setMessages((prev) => {
+          const msgs = prev[readerId];
+          if (!msgs) return prev;
+          const updated = msgs.map((m) =>
+            m.sender === senderId && !m.read ? { ...m, read: true } : m,
+          );
+          return { ...prev, [readerId]: updated };
+        });
+      }
+    });
 
-      return () => {
-        if (socketRef.current) {
-          socketRef.current.disconnect();
-        }
-      };
-    }
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
   }, [currentUser]);
 
+  // Update unread count
   useEffect(() => {
     const total = Object.values(unreadCounts).reduce(
       (sum, count) => sum + count,
@@ -153,37 +190,26 @@ export default function ChatSystem({
     onUnreadChange?.(total);
   }, [unreadCounts, onUnreadChange]);
 
+  // Mark messages as read when opening chat
   useEffect(() => {
-    let unlockAudio = null;
-
     if (isOpen && selectedFriend && view === "chat") {
       setUnreadCounts((prev) => ({
         ...prev,
         [selectedFriend._id]: 0,
       }));
 
-      unlockAudio = () => {
-        const audio = new Audio("/add.mp3");
-        audio.volume = 0;
-        audio.play().catch(() => {});
-        window.removeEventListener("click", unlockAudio);
-      };
-      window.addEventListener("click", unlockAudio);
-
-      if (selectedFriend._id && socketRef.current) {
-        socketRef.current.emit("markRead", {
-          senderId: selectedFriend._id,
-          readerId: currentUser._id,
-        });
+      // Mark as read via API
+      if (selectedFriend._id && currentUser) {
+        api
+          .put("/chat/read", {
+            senderId: selectedFriend._id,
+          })
+          .catch(() => {});
       }
     }
-    return () => {
-      if (typeof unlockAudio === "function") {
-        window.removeEventListener("click", unlockAudio);
-      }
-    };
   }, [isOpen, selectedFriend, view, currentUser]);
 
+  // Fetch friends and requests on open
   useEffect(() => {
     if (isOpen) {
       fetchFriends();
@@ -191,24 +217,45 @@ export default function ChatSystem({
     }
   }, [isOpen]);
 
+  // Fetch chat history when selecting a friend (only if not already loaded)
   useEffect(() => {
     if (selectedFriend) {
-      fetchChatHistory(selectedFriend._id);
+      const friendId = selectedFriend._id;
+      if (!messages[friendId] || messages[friendId].length === 0) {
+        fetchChatHistory(friendId);
+      }
     }
   }, [selectedFriend]);
 
+  // Auto-scroll to bottom on new messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [currentMessages, typingUsers]);
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [currentMessages.length, typingUsers]);
 
-  // Production polling: Poll friend statuses for online updates
+  // Consolidated polling effect - single interval for all production polling
   useEffect(() => {
     if (!isOpen || !currentUser) return;
 
-    const pollFriendStatuses = async () => {
+    const pollAll = async () => {
       try {
-        const res = await api.get("/friends/status");
-        const friendStatuses = res.data;
+        // Batch: fetch friend statuses and typing in parallel
+        const [statusRes] = await Promise.all([
+          api.get("/friends/status"),
+          // Only poll typing if a friend is selected
+          selectedFriendRef.current
+            ? api
+                .get(`/chat/typing/${selectedFriendRef.current._id}`)
+                .then((r) => ({
+                  friendId: selectedFriendRef.current._id,
+                  isTyping: r.data.isTyping,
+                }))
+            : Promise.resolve(null),
+        ]);
+
+        // Update friend statuses
+        const friendStatuses = statusRes.data;
         setFriends((prev) =>
           prev.map((f) => {
             const status = friendStatuses[f._id];
@@ -223,7 +270,7 @@ export default function ChatSystem({
             return f;
           }),
         );
-        // Also update selectedFriend if applicable (use ref for current value)
+
         const currentSelectedFriend = selectedFriendRef.current;
         if (currentSelectedFriend) {
           const status = friendStatuses[currentSelectedFriend._id];
@@ -241,70 +288,17 @@ export default function ChatSystem({
           }
         }
       } catch (err) {
-        console.error("Failed to poll friend statuses", err);
+        // Silent fail in production
       }
     };
 
-    // Poll immediately on open
-    pollFriendStatuses();
-
-    // Set up interval for production polling
-    const interval = setInterval(
-      pollFriendStatuses,
-      FRIEND_STATUS_POLL_INTERVAL,
-    );
+    pollAll();
+    const interval = setInterval(pollAll, FRIEND_STATUS_POLL_INTERVAL);
 
     return () => clearInterval(interval);
   }, [isOpen, currentUser]);
 
-  // Production polling: Poll typing status for selected friend
-  useEffect(() => {
-    if (!currentUser) return;
-
-    let currentFriendId = null;
-
-    const pollTypingStatus = async () => {
-      const currentSelectedFriend = selectedFriendRef.current;
-      if (!currentSelectedFriend) return;
-
-      currentFriendId = currentSelectedFriend._id;
-
-      try {
-        const res = await api.get(`/chat/typing/${currentSelectedFriend._id}`);
-        setTypingUsers((prev) => ({
-          ...prev,
-          [currentFriendId]: res.data.isTyping,
-        }));
-
-        // Auto-clear typing indicator after timeout (safety net)
-        if (res.data.isTyping) {
-          if (typingClearTimersRef.current[currentFriendId]) {
-            clearTimeout(typingClearTimersRef.current[currentFriendId]);
-          }
-          typingClearTimersRef.current[currentFriendId] = setTimeout(() => {
-            setTypingUsers((prev) => ({
-              ...prev,
-              [currentFriendId]: false,
-            }));
-          }, TYPING_CLEAR_TIMEOUT);
-        }
-      } catch (err) {
-        console.error("Failed to poll typing status", err);
-      }
-    };
-
-    pollTypingStatus();
-    const interval = setInterval(pollTypingStatus, TYPING_POLL_INTERVAL);
-
-    return () => {
-      clearInterval(interval);
-      if (currentFriendId && typingClearTimersRef.current[currentFriendId]) {
-        clearTimeout(typingClearTimersRef.current[currentFriendId]);
-      }
-    };
-  }, [currentUser]);
-
-  // Production: Heartbeat to maintain online status
+  // Heartbeat (separate because it should run even when chat is open)
   useEffect(() => {
     if (!isOpen || !currentUser) return;
 
@@ -312,12 +306,12 @@ export default function ChatSystem({
       try {
         await api.post("/friends/heartbeat");
       } catch (err) {
-        console.error("Heartbeat failed", err);
+        // Silent fail
       }
     };
 
     const interval = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
-    sendHeartbeat(); // Send immediately on open
+    sendHeartbeat();
 
     return () => clearInterval(interval);
   }, [isOpen, currentUser]);
@@ -394,81 +388,128 @@ export default function ChatSystem({
     }
   };
 
-  const fetchChatHistory = async (friendId) => {
+  const fetchChatHistory = async (friendId, before) => {
     try {
-      const res = await api.get(`/chat/history/${friendId}`);
-      setMessages((prev) => ({
-        ...prev,
-        [friendId]: res.data.map((m) => ({
+      const params = new URLSearchParams();
+      params.set("limit", MESSAGES_PER_PAGE);
+      if (before) params.set("before", before);
+
+      const res = await api.get(`/chat/history/${friendId}?${params}`);
+
+      setMessages((prev) => {
+        const existing = prev[friendId] || [];
+        const newMsgs = res.data.messages.map((m) => ({
           id: m._id,
           sender: m.sender,
           text: m.text,
-          time: new Date(m.createdAt).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
+          time: m.time,
           createdAt: m.createdAt,
           read: m.read || false,
-        })),
+        }));
+
+        if (before) {
+          // Prepend older messages
+          const existingIds = new Set(existing.map((m) => m.id));
+          const uniqueNew = newMsgs.filter((m) => !existingIds.has(m.id));
+          return {
+            ...prev,
+            [friendId]: [...uniqueNew, ...existing],
+          };
+        }
+
+        return {
+          ...prev,
+          [friendId]: newMsgs,
+        };
+      });
+
+      setHasMoreMessages((prev) => ({
+        ...prev,
+        [friendId]: res.data.hasMore,
       }));
+
+      return res.data.hasMore;
     } catch (err) {
       console.error("Failed to fetch history", err);
+      return false;
     }
   };
 
-  const handleExploreSearch = async (val) => {
+  // Load more messages when scrolling to top
+  const loadMoreMessages = useCallback(async () => {
+    if (!selectedFriend || loadingMore) return;
+    const friendId = selectedFriend._id;
+    if (!hasMoreMessages[friendId]) return;
+
+    setLoadingMore(true);
+    const msgs = messagesRef.current[friendId] || [];
+    const oldestMsg = msgs[0];
+    if (oldestMsg) {
+      await fetchChatHistory(friendId, oldestMsg.id);
+    }
+    setLoadingMore(false);
+  }, [selectedFriend, loadingMore, hasMoreMessages]);
+
+  // Scroll handler for infinite scroll
+  const handleMessagesScroll = useCallback(
+    (e) => {
+      const el = e.target;
+      if (el.scrollTop < 50 && !loadingMore) {
+        loadMoreMessages();
+      }
+    },
+    [loadMoreMessages, loadingMore],
+  );
+
+  const handleExploreSearch = useCallback((val) => {
     setExploreQuery(val);
+    if (exploreDebounceRef.current) clearTimeout(exploreDebounceRef.current);
+
     if (val.length < 2) {
       setExploreResults([]);
       return;
     }
-    try {
-      const res = await api.get(`/users/search?q=${val}`);
-      setExploreResults(res.data);
-    } catch (err) {
-      console.error("Search failed", err);
-    }
-  };
+
+    exploreDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await api.get(`/users/search?q=${encodeURIComponent(val)}`);
+        setExploreResults(res.data);
+      } catch (err) {
+        console.error("Search failed", err);
+      }
+    }, 300);
+  }, []);
 
   const handleTyping = useCallback(
     (e) => {
-      setInput(e.target.value);
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      const value = e.target.value;
+      setInput(value);
 
-      // Send typing via WebSocket (works in dev/local)
-      if (selectedFriend && socketRef.current) {
-        socketRef.current.emit("typing", {
-          recipientId: selectedFriend._id,
-          isTyping: true,
-        });
-      }
+      if (!selectedFriend) return;
 
-      // Also send via HTTP API (for production fallback)
-      if (selectedFriend) {
-        api
-          .post("/chat/typing", {
+      const now = Date.now();
+
+      // Debounce: only send typing status every TYPING_DEBOUNCE_MS
+      if (now - typingLastSentRef.current > TYPING_DEBOUNCE_MS) {
+        typingLastSentRef.current = now;
+
+        // Send via WebSocket only (primary path)
+        if (socketRef.current) {
+          socketRef.current.emit("typing", {
             recipientId: selectedFriend._id,
             isTyping: true,
-          })
-          .catch(() => {}); // Silent fail in production
+          });
+        }
       }
 
+      // Clear typing after inactivity
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = setTimeout(() => {
-        // Clear typing via WebSocket
-        if (selectedFriend && socketRef.current) {
+        if (socketRef.current) {
           socketRef.current.emit("typing", {
             recipientId: selectedFriend._id,
             isTyping: false,
           });
-        }
-        // Clear typing via HTTP API
-        if (selectedFriend) {
-          api
-            .post("/chat/typing", {
-              recipientId: selectedFriend._id,
-              isTyping: false,
-            })
-            .catch(() => {});
         }
       }, 1000);
     },
@@ -479,7 +520,7 @@ export default function ChatSystem({
     if (!input.trim() || !selectedFriend) return;
 
     const text = input.trim();
-    const recipientId = selectedFriend._id; // Capture for HTTP fallback
+    const recipientId = selectedFriend._id;
     setInput("");
     setReplyTo(null);
 
@@ -488,44 +529,66 @@ export default function ChatSystem({
     // Clear typing via WebSocket
     if (socketRef.current) {
       socketRef.current.emit("typing", {
-        recipientId: recipientId,
+        recipientId,
         isTyping: false,
       });
     }
 
-    // Clear typing via HTTP API (production fallback)
-    api
-      .post("/chat/typing", {
-        recipientId: recipientId,
-        isTyping: false,
-      })
-      .catch(() => {});
+    // Optimistic update
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg = {
+      id: tempId,
+      sender: currentUser._id,
+      text,
+      time: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      createdAt: new Date().toISOString(),
+      read: false,
+    };
+
+    setMessages((prev) => ({
+      ...prev,
+      [recipientId]: [...(prev[recipientId] || []), optimisticMsg],
+    }));
 
     try {
       const res = await api.post("/chat/send", {
-        recipientId: recipientId,
+        recipientId,
         text,
       });
-      const createdAt = res.data.createdAt
-        ? new Date(res.data.createdAt)
-        : new Date();
-      const newMsg = {
-        id: res.data._id,
-        sender: currentUser._id,
-        text: res.data.text,
-        time: createdAt.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        createdAt: createdAt.toISOString(),
-        read: false,
-      };
-      setMessages((prev) => ({
-        ...prev,
-        [recipientId]: [...(prev[recipientId] || []), newMsg],
-      }));
+
+      // Replace optimistic message with real one
+      setMessages((prev) => {
+        const msgs = prev[recipientId] || [];
+        const updated = msgs.map((m) =>
+          m.id === tempId
+            ? {
+                id: res.data._id,
+                sender: currentUser._id,
+                text: res.data.text,
+                time: new Date(res.data.createdAt).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }),
+                createdAt: res.data.createdAt,
+                read: false,
+              }
+            : m,
+        );
+        return { ...prev, [recipientId]: updated };
+      });
     } catch (err) {
       console.error("Failed to send message", err);
+      // Remove optimistic message on failure
+      setMessages((prev) => {
+        const msgs = prev[recipientId] || [];
+        return {
+          ...prev,
+          [recipientId]: msgs.filter((m) => m.id !== tempId),
+        };
+      });
       showNotification("Failed to send message");
     }
   };
@@ -573,14 +636,22 @@ export default function ChatSystem({
     }
   };
 
-  const filteredFriends = friends.filter((f) =>
-    f.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  // Memoized filtered friends
+  const filteredFriends = useMemo(
+    () =>
+      friends.filter((f) =>
+        f.name.toLowerCase().includes(searchQuery.toLowerCase()),
+      ),
+    [friends, searchQuery],
   );
 
-  const getLastMessage = (friendId) => {
-    const msgs = messages[friendId] || [];
-    return msgs[msgs.length - 1];
-  };
+  const getLastMessage = useCallback(
+    (friendId) => {
+      const msgs = messages[friendId] || [];
+      return msgs[msgs.length - 1];
+    },
+    [messages],
+  );
 
   const myAvatar = currentUser?.username?.substring(0, 2).toUpperCase() || "ME";
 
@@ -1070,8 +1141,17 @@ export default function ChatSystem({
                 </div>
 
                 {/* Messages */}
-                <div style={styles.messages}>
-                  {currentMessages.length === 0 && (
+                <div
+                  style={styles.messages}
+                  ref={messagesContainerRef}
+                  onScroll={handleMessagesScroll}
+                >
+                  {loadingMore && (
+                    <div style={styles.loadingMore}>
+                      Loading older messages...
+                    </div>
+                  )}
+                  {currentMessages.length === 0 && !loadingMore && (
                     <div style={styles.emptyChat}>
                       <div style={{ fontSize: 48 }}>👋</div>
                       <div style={styles.emptyChatText}>
@@ -1685,6 +1765,12 @@ const styles = {
     marginLeft: 8,
     animation: "pulse 2s infinite",
     verticalAlign: "middle",
+  },
+  loadingMore: {
+    textAlign: "center",
+    padding: "10px",
+    color: "var(--text-muted)",
+    fontSize: 12,
   },
 };
 

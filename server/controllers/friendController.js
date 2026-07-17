@@ -6,7 +6,9 @@ const FriendRequest = require("../models/FriendRequest");
 // @access  Private
 const sendFriendRequest = async (req, res) => {
   try {
-    const recipient = await User.findOne({ username: req.params.username });
+    const recipient = await User.findOne({ username: req.params.username })
+      .select("_id username")
+      .lean();
     if (!recipient) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -25,7 +27,7 @@ const sendFriendRequest = async (req, res) => {
       sender: req.user._id,
       recipient: recipient._id,
       status: "pending",
-    });
+    }).lean();
 
     if (existingRequest) {
       return res.status(400).json({ message: "Request already sent" });
@@ -51,7 +53,9 @@ const getPendingRequests = async (req, res) => {
     const requests = await FriendRequest.find({
       recipient: req.user._id,
       status: "pending",
-    }).populate("sender", "username level xp");
+    })
+      .populate("sender", "username level xp")
+      .lean();
     res.json(requests);
   } catch (error) {
     console.error(error);
@@ -118,10 +122,9 @@ const rejectFriendRequest = async (req, res) => {
 // @access  Private
 const getFriends = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).populate(
-      "friends",
-      "username level xp isOnline lastSeen",
-    );
+    const user = await User.findById(req.user._id)
+      .populate("friends", "username level xp isOnline lastSeen")
+      .lean();
     res.json(user.friends);
   } catch (error) {
     console.error(error);
@@ -152,10 +155,9 @@ const heartbeat = async (req, res) => {
 // @access  Private
 const getFriendStatuses = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).populate(
-      "friends",
-      "_id isOnline lastSeen",
-    );
+    const user = await User.findById(req.user._id)
+      .populate("friends", "_id isOnline lastSeen")
+      .lean();
     const statuses = {};
     user.friends.forEach((friend) => {
       statuses[friend._id] = {
