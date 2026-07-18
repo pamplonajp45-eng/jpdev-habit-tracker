@@ -1,5 +1,17 @@
 const mongoose = require("mongoose");
 
+const ReactionSchema = new mongoose.Schema(
+  {
+    emoji: { type: String, required: true },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { _id: false },
+);
+
 const MessageSchema = new mongoose.Schema({
   sender: {
     type: mongoose.Schema.Types.ObjectId,
@@ -22,6 +34,12 @@ const MessageSchema = new mongoose.Schema({
     default: false,
     index: true,
   },
+  replyTo: {
+    messageId: { type: mongoose.Schema.Types.ObjectId, ref: "Message" },
+    text: { type: String, default: "" },
+    sender: { type: String, default: "" },
+  },
+  reactions: [ReactionSchema],
   createdAt: {
     type: Date,
     default: Date.now,

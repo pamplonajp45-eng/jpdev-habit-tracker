@@ -24,6 +24,9 @@ const MESSAGES_PER_PAGE = 50;
 // Typing debounce
 const TYPING_DEBOUNCE_MS = 1500;
 
+// Common emojis for quick reaction
+const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+
 export default function ChatSystem({
   isOpen,
   onClose,
@@ -46,6 +49,8 @@ export default function ChatSystem({
   const [replyTo, setReplyTo] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState({});
+  const [contextMenu, setContextMenu] = useState(null);
+  const [showReactionPicker, setShowReactionPicker] = useState(null);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const socketRef = useRef(null);
@@ -53,6 +58,9 @@ export default function ChatSystem({
   const typingLastSentRef = useRef(0);
   const debounceTimerRef = useRef(null);
   const exploreDebounceRef = useRef(null);
+  const longPressTimerRef = useRef(null);
+  const contextMenuRef = useRef(null);
+  const reactionPickerRef = useRef(null);
 
   // Refs for values used in socket callbacks (avoids stale closures)
   const isOpenRef = useRef(isOpen);
@@ -78,6 +86,26 @@ export default function ChatSystem({
   useEffect(() => {
     friendsRef.current = friends;
   }, [friends]);
+
+  // Close context menu and reaction picker on click outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        contextMenuRef.current &&
+        !contextMenuRef.current.contains(e.target)
+      ) {
+        setContextMenu(null);
+      }
+      if (
+        reactionPickerRef.current &&
+        !reactionPickerRef.current.contains(e.target)
+      ) {
+        setShowReactionPicker(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const currentMessages = useMemo(
     () => (selectedFriend ? messages[selectedFriend._id] || [] : []),
@@ -117,7 +145,14 @@ export default function ChatSystem({
         if (existing.some((m) => m.id === msg.id)) return prev;
         return {
           ...prev,
-          [friendId]: [...existing, msg],
+          [friendId]: [
+            ...existing,
+            {
+              ...msg,
+              replyTo: msg.replyTo || null,
+              reactions: msg.reactions || [],
+            },
+          ],
         };
       });
 
@@ -173,6 +208,18 @@ export default function ChatSystem({
           return { ...prev, [readerId]: updated };
         });
       }
+    });
+
+    socket.on("messageReaction", ({ messageId, reactions }) => {
+      setMessages((prev) => {
+        const updated = { ...prev };
+        for (const friendId of Object.keys(updated)) {
+          updated[friendId] = updated[friendId].map((m) =>
+            m.id === messageId ? { ...m, reactions: reactions || [] } : m,
+          );
+        }
+        return updated;
+      });
     });
 
     return () => {
@@ -405,6 +452,8 @@ export default function ChatSystem({
           time: m.time,
           createdAt: m.createdAt,
           read: m.read || false,
+          replyTo: m.replyTo || null,
+          reactions: m.reactions || [],
         }));
 
         if (before) {
@@ -521,6 +570,15 @@ export default function ChatSystem({
 
     const text = input.trim();
     const recipientId = selectedFriend._id;
+
+    const replyData = replyTo
+      ? {
+          messageId: replyTo.id,
+          text: replyTo.text,
+          sender: replyTo.sender,
+        }
+      : null;
+
     setInput("");
     setReplyTo(null);
 
@@ -546,6 +604,14 @@ export default function ChatSystem({
       }),
       createdAt: new Date().toISOString(),
       read: false,
+      replyTo: replyData
+        ? {
+            messageId: replyData.messageId,
+            text: replyData.text,
+            sender: replyData.sender,
+          }
+        : null,
+      reactions: [],
     };
 
     setMessages((prev) => ({
@@ -557,6 +623,7 @@ export default function ChatSystem({
       const res = await api.post("/chat/send", {
         recipientId,
         text,
+        replyTo: replyData,
       });
 
       // Replace optimistic message with real one
@@ -574,6 +641,8 @@ export default function ChatSystem({
                 }),
                 createdAt: res.data.createdAt,
                 read: false,
+                replyTo: res.data.replyTo || null,
+                reactions: [],
               }
             : m,
         );
@@ -635,6 +704,102 @@ export default function ChatSystem({
       showNotification(err.response?.data?.message || "Failed to send request");
     }
   };
+
+  // --- Long Press Handlers ---
+  const handleMouseDown = useCallback((e, msg) => {
+    // Right click
+    if (e.button === 2) {
+      e.preventDefault();
+      setContextMenu({ x: e.clientX, y: e.clientY, msg });
+      return;
+    }
+    // Long press for left click/touch
+    longPressTimerRef.current = setTimeout(() => {
+      setContextMenu({ x: e.clientX, y: e.clientY, msg });
+    }, 500);
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const handleTouchStart = useCallback((e, msg) => {
+    longPressTimerRef.current = setTimeout(() => {
+      const touch = e.touches[0];
+      setContextMenu({ x: touch.clientX, y: touch.clientY, msg });
+    }, 500);
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  // --- Context Menu Actions ---
+  const handleReply = useCallback(
+    (msg) => {
+      setReplyTo({
+        id: msg.id,
+        text: msg.text,
+        sender:
+          msg.sender === currentUser._id
+            ? "You"
+            : selectedFriendRef.current?.name || "",
+      });
+      setContextMenu(null);
+      // Focus input
+      document.getElementById("chat-message-input")?.focus();
+    },
+    [currentUser],
+  );
+
+  const handleReactClick = useCallback((msg) => {
+    setShowReactionPicker(msg.id);
+    setContextMenu(null);
+  }, []);
+
+  // --- Toggle Reaction ---
+  const handleToggleReaction = useCallback(
+    async (emoji) => {
+      if (!showReactionPicker) return;
+      const messageId = showReactionPicker;
+
+      // Optimistic update
+      setMessages((prev) => {
+        const updated = { ...prev };
+        for (const friendId of Object.keys(updated)) {
+          updated[friendId] = updated[friendId].map((m) => {
+            if (m.id !== messageId) return m;
+            const existingIdx = (m.reactions || []).findIndex(
+              (r) => r.userId === currentUser._id && r.emoji === emoji,
+            );
+            let newReactions = [...(m.reactions || [])];
+            if (existingIdx > -1) {
+              newReactions.splice(existingIdx, 1);
+            } else {
+              newReactions.push({ emoji, userId: currentUser._id });
+            }
+            return { ...m, reactions: newReactions };
+          });
+        }
+        return updated;
+      });
+
+      setShowReactionPicker(null);
+
+      try {
+        await api.post("/chat/reaction", { messageId, emoji });
+      } catch (err) {
+        console.error("Failed to toggle reaction", err);
+      }
+    },
+    [showReactionPicker, currentUser],
+  );
 
   // Memoized filtered friends
   const filteredFriends = useMemo(
@@ -1183,6 +1348,16 @@ export default function ChatSystem({
                             ...styles.msgRow,
                             justifyContent: isMe ? "flex-end" : "flex-start",
                           }}
+                          onMouseDown={(e) => handleMouseDown(e, msg)}
+                          onMouseUp={handleMouseUp}
+                          onMouseLeave={handleMouseUp}
+                          onTouchStart={(e) => handleTouchStart(e, msg)}
+                          onTouchEnd={handleTouchEnd}
+                          onTouchMove={handleTouchEnd}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            setContextMenu({ x: e.clientX, y: e.clientY, msg });
+                          }}
                         >
                           {!isMe && (
                             <div
@@ -1197,6 +1372,24 @@ export default function ChatSystem({
                             </div>
                           )}
                           <div style={{ maxWidth: "75%" }}>
+                            {/* Reply preview inside bubble */}
+                            {msg.replyTo && msg.replyTo.messageId && (
+                              <div
+                                style={{
+                                  ...styles.replyPreview,
+                                  borderLeftColor: isMe
+                                    ? "rgba(255,255,255,0.5)"
+                                    : "var(--accent)",
+                                }}
+                              >
+                                <div style={styles.replyPreviewSender}>
+                                  {msg.replyTo.sender}
+                                </div>
+                                <div style={styles.replyPreviewText}>
+                                  {msg.replyTo.text}
+                                </div>
+                              </div>
+                            )}
                             <div
                               style={{
                                 ...styles.bubble,
@@ -1205,10 +1398,49 @@ export default function ChatSystem({
                                   isMe && showAvatar ? 20 : 4,
                                 borderBottomLeftRadius:
                                   !isMe && showAvatar ? 20 : 4,
+                                borderTopLeftRadius:
+                                  msg.replyTo && !isMe ? 12 : 18,
+                                borderTopRightRadius:
+                                  msg.replyTo && isMe ? 12 : 18,
                               }}
                             >
                               {msg.text}
                             </div>
+                            {/* Reaction badges */}
+                            {msg.reactions && msg.reactions.length > 0 && (
+                              <div
+                                style={{
+                                  ...styles.reactionBar,
+                                  justifyContent: isMe
+                                    ? "flex-end"
+                                    : "flex-start",
+                                }}
+                              >
+                                {groupReactions(
+                                  msg.reactions,
+                                  currentUser._id,
+                                ).map(({ emoji, count, hasMine }) => (
+                                  <button
+                                    key={emoji}
+                                    style={{
+                                      ...styles.reactionBadge,
+                                      ...(hasMine
+                                        ? styles.reactionBadgeMine
+                                        : {}),
+                                    }}
+                                    onClick={() => handleToggleReaction(emoji)}
+                                    title="Toggle reaction"
+                                  >
+                                    {emoji}
+                                    {count > 1 && (
+                                      <span style={styles.reactionCount}>
+                                        {count}
+                                      </span>
+                                    )}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                             <div
                               style={{
                                 ...styles.msgMeta,
@@ -1252,10 +1484,29 @@ export default function ChatSystem({
                   </div>
                 )}
 
+                {/* Reply preview bar above input */}
+                {replyTo && (
+                  <div style={styles.replyBar}>
+                    <div style={styles.replyBarContent}>
+                      <div style={styles.replyBarLabel}>
+                        Replying to <strong>{replyTo.sender}</strong>
+                      </div>
+                      <div style={styles.replyBarText}>{replyTo.text}</div>
+                    </div>
+                    <button
+                      style={styles.replyBarClose}
+                      onClick={() => setReplyTo(null)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+
                 {/* Input */}
                 <div style={styles.inputArea}>
                   <div style={styles.inputWrapper}>
                     <input
+                      id="chat-message-input"
                       style={styles.messageInput}
                       placeholder="Type a message..."
                       value={input}
@@ -1317,9 +1568,80 @@ export default function ChatSystem({
             )}
           </div>
         )}
+
+        {/* Context Menu */}
+        {contextMenu && (
+          <div
+            ref={contextMenuRef}
+            style={{
+              ...styles.contextMenu,
+              left: contextMenu.x,
+              top: contextMenu.y,
+            }}
+          >
+            <button
+              style={styles.contextMenuItem}
+              onClick={() => handleReactClick(contextMenu.msg)}
+            >
+              <span style={{ fontSize: 18 }}>😊</span>
+              <span>React</span>
+            </button>
+            <button
+              style={styles.contextMenuItem}
+              onClick={() => handleReply(contextMenu.msg)}
+            >
+              <span style={{ fontSize: 18 }}>↩️</span>
+              <span>Reply</span>
+            </button>
+          </div>
+        )}
+
+        {/* Reaction Picker */}
+        {showReactionPicker && (
+          <div ref={reactionPickerRef} style={styles.reactionPicker}>
+            {QUICK_EMOJIS.map((emoji) => {
+              const msg = currentMessages.find(
+                (m) => m.id === showReactionPicker,
+              );
+              const hasReacted = msg?.reactions?.some(
+                (r) => r.userId === currentUser._id && r.emoji === emoji,
+              );
+              return (
+                <button
+                  key={emoji}
+                  style={{
+                    ...styles.reactionPickerEmoji,
+                    ...(hasReacted ? styles.reactionPickerEmojiActive : {}),
+                  }}
+                  onClick={() => handleToggleReaction(emoji)}
+                >
+                  {emoji}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+// Helper: group reactions by emoji with count and "mine" flag
+function groupReactions(reactions, currentUserId) {
+  const map = {};
+  reactions.forEach((r) => {
+    if (!map[r.emoji]) {
+      map[r.emoji] = { emoji: r.emoji, count: 0, userIds: [] };
+    }
+    map[r.emoji].count++;
+    map[r.emoji].userIds.push(r.userId);
+  });
+  return Object.values(map).map((g) => ({
+    ...g,
+    hasMine: g.userIds.some(
+      (id) => id.toString() === currentUserId?.toString(),
+    ),
+  }));
 }
 
 function avatarBg(name) {
@@ -1772,6 +2094,151 @@ const styles = {
     color: "var(--text-muted)",
     fontSize: 12,
   },
+  // --- Context Menu ---
+  contextMenu: {
+    position: "fixed",
+    zIndex: 9999,
+    background: "var(--card-bg)",
+    border: "1px solid var(--card-border)",
+    borderRadius: 12,
+    boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+    overflow: "hidden",
+    minWidth: 140,
+  },
+  contextMenuItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "12px 16px",
+    background: "transparent",
+    border: "none",
+    color: "var(--text-primary)",
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+    width: "100%",
+    textAlign: "left",
+    transition: "background 0.15s",
+  },
+  // --- Reaction Picker ---
+  reactionPicker: {
+    position: "fixed",
+    bottom: 100,
+    left: "50%",
+    transform: "translateX(-50%)",
+    zIndex: 9999,
+    display: "flex",
+    gap: 4,
+    background: "var(--card-bg)",
+    border: "1px solid var(--card-border)",
+    borderRadius: 24,
+    padding: "8px 12px",
+    boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+  },
+  reactionPickerEmoji: {
+    width: 40,
+    height: 40,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 24,
+    background: "transparent",
+    border: "none",
+    borderRadius: "50%",
+    cursor: "pointer",
+    transition: "all 0.15s",
+  },
+  reactionPickerEmojiActive: {
+    background: "var(--accent-light)",
+    transform: "scale(1.2)",
+  },
+  // --- Reply Preview inside bubble ---
+  replyPreview: {
+    borderLeft: "3px solid var(--accent)",
+    paddingLeft: 8,
+    marginBottom: 4,
+    marginTop: 2,
+    borderRadius: 4,
+  },
+  replyPreviewSender: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: "inherit",
+    opacity: 0.8,
+    marginBottom: 2,
+  },
+  replyPreviewText: {
+    fontSize: 12,
+    opacity: 0.7,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+  // --- Reply bar above input ---
+  replyBar: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "8px 16px",
+    background: "var(--accent-light)",
+    borderTop: "1px solid var(--accent-mid)",
+    flexShrink: 0,
+  },
+  replyBarContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  replyBarLabel: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: "var(--accent)",
+    marginBottom: 2,
+  },
+  replyBarText: {
+    fontSize: 12,
+    color: "var(--text-secondary)",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+  replyBarClose: {
+    background: "transparent",
+    border: "none",
+    color: "var(--text-secondary)",
+    fontSize: 16,
+    cursor: "pointer",
+    padding: "4px 8px",
+    borderRadius: 8,
+  },
+  // --- Reaction badges on messages ---
+  reactionBar: {
+    display: "flex",
+    gap: 4,
+    marginTop: 4,
+    flexWrap: "wrap",
+  },
+  reactionBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 2,
+    background: "var(--card-bg)",
+    border: "1px solid var(--card-border)",
+    borderRadius: 12,
+    padding: "2px 6px",
+    fontSize: 13,
+    cursor: "pointer",
+    transition: "all 0.15s",
+  },
+  reactionBadgeMine: {
+    background: "var(--accent-light)",
+    borderColor: "var(--accent-mid)",
+  },
+  reactionCount: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: "var(--text-secondary)",
+    marginLeft: 1,
+  },
 };
 
 const css = `
@@ -1783,6 +2250,9 @@ const css = `
 
   .friend-item:hover { background: rgba(255,255,255,0.04) !important; }
   .nav-btn:hover { background: rgba(255,255,255,0.03); }
+
+  .context-menu-item:hover { background: rgba(255,255,255,0.06) !important; }
+  .reaction-emoji:hover { background: rgba(255,255,255,0.08) !important; }
 
   @keyframes slideDown {
     from { transform: translate(-50%, -20px); opacity: 0; }

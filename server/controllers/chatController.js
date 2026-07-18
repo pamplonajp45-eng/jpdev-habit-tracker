@@ -12,7 +12,7 @@ const MESSAGES_PER_PAGE = 50;
 // @access  Private
 const sendMessage = async (req, res) => {
   try {
-    const { recipientId, text } = req.body;
+    const { recipientId, text, replyTo } = req.body;
 
     // Quick friend check using lean
     const sender = await User.findById(req.user._id)
@@ -27,11 +27,22 @@ const sendMessage = async (req, res) => {
 
     const encryptedText = encrypt(text);
 
-    const message = await Message.create({
+    const messageData = {
       sender: req.user._id,
       recipient: recipientId,
       text: encryptedText,
-    });
+    };
+
+    // If replying to a message, include replyTo data
+    if (replyTo && replyTo.messageId) {
+      messageData.replyTo = {
+        messageId: replyTo.messageId,
+        text: replyTo.text || "",
+        sender: replyTo.sender || "",
+      };
+    }
+
+    const message = await Message.create(messageData);
 
     // Emit real-time message via Socket.io
     const io = req.app.get("io");
@@ -45,6 +56,8 @@ const sendMessage = async (req, res) => {
           minute: "2-digit",
         }),
         createdAt: message.createdAt,
+        replyTo: message.replyTo || null,
+        reactions: [],
       });
     }
 
@@ -67,6 +80,8 @@ const sendMessage = async (req, res) => {
       text,
       read: false,
       createdAt: message.createdAt,
+      replyTo: message.replyTo || null,
+      reactions: [],
     });
   } catch (error) {
     console.error(error);
@@ -104,7 +119,7 @@ const getChatHistory = async (req, res) => {
     const messages = await Message.find(query)
       .sort({ createdAt: -1 })
       .limit(pageSize + 1) // Fetch one extra to check for more
-      .select("sender recipient text read createdAt")
+      .select("sender recipient text read createdAt replyTo reactions")
       .lean();
 
     const hasMore = messages.length > pageSize;
@@ -126,6 +141,8 @@ const getChatHistory = async (req, res) => {
           hour: "2-digit",
           minute: "2-digit",
         }),
+        replyTo: m.replyTo || null,
+        reactions: m.reactions || [],
       };
     });
 
@@ -230,10 +247,71 @@ const markAsRead = async (req, res) => {
   }
 };
 
+// @desc    Add/remove reaction to a message
+// @route   POST /api/chat/reaction
+// @access  Private
+const toggleReaction = async (req, res) => {
+  try {
+    const { messageId, emoji } = req.body;
+    const userId = req.user._id;
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ message: "Message not found" });
+    }
+
+    // Check if user already reacted with this emoji
+    const existingIndex = message.reactions.findIndex(
+      (r) => r.userId.toString() === userId.toString() && r.emoji === emoji,
+    );
+
+    if (existingIndex > -1) {
+      // Remove reaction
+      message.reactions.splice(existingIndex, 1);
+    } else {
+      // Add reaction
+      message.reactions.push({ emoji, userId });
+    }
+
+    await message.save();
+
+    // Emit reaction update to both participants
+    const io = req.app.get("io");
+    if (io) {
+      const recipientId =
+        message.sender.toString() === userId.toString()
+          ? message.recipient.toString()
+          : message.sender.toString();
+
+      io.to(recipientId).emit("messageReaction", {
+        messageId: message._id,
+        reactions: message.reactions,
+      });
+
+      // Also emit to the sender if they're not the one reacting
+      if (recipientId !== userId.toString()) {
+        io.to(userId.toString()).emit("messageReaction", {
+          messageId: message._id,
+          reactions: message.reactions,
+        });
+      }
+    }
+
+    res.json({
+      messageId: message._id,
+      reactions: message.reactions,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   sendMessage,
   getChatHistory,
   setTypingStatus,
   getTypingStatus,
   markAsRead,
+  toggleReaction,
 };
